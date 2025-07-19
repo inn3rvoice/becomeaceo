@@ -19,10 +19,13 @@ export default function DodgeCam() {
   const [hugAnimationFrame, setHugAnimationFrame] = useState(1);
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [currentTooltip, setCurrentTooltip] = useState('');
+  const [caughtAnimationFrame, setCaughtAnimationFrame] = useState(1);
+  const [caughtAnimationPhase, setCaughtAnimationPhase] = useState<'initial' | 'loop'>('initial');
   
   const gameAreaRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number>();
   const hugAnimationRef = useRef<number>();
+  const caughtAnimationRef = useRef<number>();
   const hugStartTime = useRef<number>(0);
   
   const PLAYER_POSITION_X = 50; // Percentage from left where player is positioned
@@ -164,10 +167,15 @@ export default function DodgeCam() {
     setHugAnimationFrame(1);
     setShowLevelUp(false);
     setCurrentTooltip(getRandomTooltip());
+    setCaughtAnimationFrame(1);
+    setCaughtAnimationPhase('initial');
     
-    // Clear any running animation
+    // Clear any running animations
     if (hugAnimationRef.current) {
       clearTimeout(hugAnimationRef.current);
+    }
+    if (caughtAnimationRef.current) {
+      clearTimeout(caughtAnimationRef.current);
     }
   };
   
@@ -369,6 +377,46 @@ export default function DodgeCam() {
     return () => clearInterval(decayInterval);
   }, [isHugging, gameState, showLevelUp]);
   
+  // Caught animation: play 1-7 once, then loop 7-23 forever
+  useEffect(() => {
+    if (gameState !== 'caught') return;
+    
+    let currentFrame = 1;
+    let isInLoop = false;
+    
+    const animateCaught = () => {
+      setCaughtAnimationFrame(currentFrame);
+      
+      if (!isInLoop) {
+        // Initial phase: play frames 1-7 once
+        if (currentFrame >= 7) {
+          isInLoop = true;
+        }
+        currentFrame++;
+      } else {
+        // Loop phase: loop frames 7-23 forever
+        if (currentFrame >= 23) {
+          currentFrame = 7; // Loop back to frame 7
+        } else {
+          currentFrame++;
+        }
+      }
+      
+      caughtAnimationRef.current = setTimeout(animateCaught, 100); // 100ms per frame
+    };
+    
+    // Start the animation
+    setCaughtAnimationFrame(1);
+    setCaughtAnimationPhase('initial');
+    animateCaught();
+    
+    return () => {
+      if (caughtAnimationRef.current) {
+        clearTimeout(caughtAnimationRef.current);
+      }
+    };
+  }, [gameState]);
+  
   const getEndMessage = () => {
     switch (gameState) {
       case 'caught':
@@ -529,7 +577,13 @@ export default function DodgeCam() {
             }}
           >
             <img
-              src={isHugging ? `/output_${hugAnimationFrame.toString().padStart(4, '0')}.png` : "/output_0001.png"}
+              src={
+                gameState === 'caught' 
+                  ? `/caught/output_${caughtAnimationFrame.toString().padStart(4, '0')}.png`
+                  : isHugging 
+                    ? `/output_${hugAnimationFrame.toString().padStart(4, '0')}.png` 
+                    : "/output_0001.png"
+              }
               alt="CEO and HR"
               className="w-10 object-contain transition-all duration-300 drop-shadow-xl"
             />
