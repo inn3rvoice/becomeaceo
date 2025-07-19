@@ -29,8 +29,8 @@ export default function DodgeCam() {
   const PLAYER_POSITION_X = 50; // Percentage from left where player is positioned
   const PLAYER_POSITION_Y = 65; // Percentage from top where player is positioned (moved up)
   const SPOTLIGHT_RADIUS = 8; // Percentage radius of spotlight
-  const PLAYER_WIDTH = 6; // Percentage width of player character (narrower for new portrait images)
-  const PLAYER_HEIGHT = 10; // Percentage height of player character (taller for new portrait images)
+  const PLAYER_WIDTH = 8; // Percentage width of player character (matches w-10 class ~40px)
+  const PLAYER_HEIGHT = 18; // Percentage height of player character (extended by 1/5 more to cover full image)
   const MIN_HUG_TIME = 1000; // Minimum hug time in ms
   const DEBUG_MODE = true; // Set to false to hide debug visuals
   
@@ -97,14 +97,14 @@ export default function DodgeCam() {
     
     // Player rectangle bounds in pixels
     const playerXPx = (PLAYER_POSITION_X / 100) * gameWidth;
-    const playerYPx = (PLAYER_POSITION_Y / 100) * gameHeight;
+    const playerYPx = ((PLAYER_POSITION_Y - 5) / 100) * gameHeight; // Match the adjusted image position
     const playerWidthPx = (PLAYER_WIDTH / 100) * gameWidth;
     const playerHeightPx = (PLAYER_HEIGHT / 100) * gameHeight;
     
     const rectLeft = playerXPx - playerWidthPx / 2;
     const rectRight = playerXPx + playerWidthPx / 2;
-    const rectTop = playerYPx - playerHeightPx / 2;
-    const rectBottom = playerYPx + playerHeightPx / 2;
+    const rectTop = playerYPx; // Top-aligned like the image
+    const rectBottom = playerYPx + playerHeightPx;
     
     // Check if circle overlaps with rectangle using closest point method
     const closestX = Math.max(rectLeft, Math.min(circleXPx, rectRight));
@@ -473,7 +473,7 @@ export default function DodgeCam() {
               className="absolute border-4 border-blue-600 pointer-events-none z-20"
               style={{
                 left: `${PLAYER_POSITION_X - PLAYER_WIDTH / 2}%`,
-                top: `${PLAYER_POSITION_Y - PLAYER_HEIGHT / 2}%`,
+                top: `${PLAYER_POSITION_Y - 5}%`,
                 width: `${PLAYER_WIDTH}%`,
                 height: `${PLAYER_HEIGHT}%`,
                 backgroundColor: isSpotlightOnPlayer() ? 'rgba(255, 0, 0, 0.5)' : 'rgba(0, 0, 255, 0.2)',
