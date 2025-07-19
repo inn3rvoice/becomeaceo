@@ -12,11 +12,10 @@ interface SpotlightState {
 export default function DodgeCam() {
   const [isHugging, setIsHugging] = useState(false);
   const [romancePoints, setRomancePoints] = useState(0);
-  const [gameState, setGameState] = useState<'playing' | 'caught' | 'won' | 'dumped'>('playing');
+  const [gameState, setGameState] = useState<'playing' | 'caught' | 'won'>('playing');
   const [careerLevel, setCareerLevel] = useState(0);
   const [spotlight, setSpotlight] = useState<SpotlightState>({ x: 20, y: 20, dx: 2, dy: 1.5 });
   const [showAnimation, setShowAnimation] = useState(false);
-  const [consecutiveEarlyHides, setConsecutiveEarlyHides] = useState(0);
   const [hugAnimationFrame, setHugAnimationFrame] = useState(1);
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [currentTooltip, setCurrentTooltip] = useState('');
@@ -133,7 +132,6 @@ export default function DodgeCam() {
   const stopHugging = () => {
     if (!isHugging || gameState !== 'playing') return;
     
-    const hugDuration = Date.now() - hugStartTime.current;
     setIsHugging(false);
     setShowAnimation(true);
     
@@ -147,23 +145,6 @@ export default function DodgeCam() {
     if (isSpotlightOnPlayer()) {
       setGameState('caught');
       return;
-    }
-    
-    // Check if hug was too short
-    if (hugDuration < MIN_HUG_TIME) {
-      const newConsecutive = consecutiveEarlyHides + 1;
-      setConsecutiveEarlyHides(newConsecutive);
-      
-      if (newConsecutive >= 3) {
-        setGameState('dumped');
-        return;
-      }
-    } else {
-      setConsecutiveEarlyHides(0);
-      // Award points based on hug duration and danger
-      const basePoints = Math.floor(hugDuration / 100);
-      const dangerBonus = isSpotlightOnPlayer() ? 2 : 1;
-      setRomancePoints(prev => prev + basePoints * dangerBonus);
     }
     
     // Hide animation after short delay
@@ -180,7 +161,6 @@ export default function DodgeCam() {
     setSpotlight({ x: 20, y: 20, dx: 2, dy: 1.5 });
     setIsHugging(false);
     setShowAnimation(false);
-    setConsecutiveEarlyHides(0);
     setHugAnimationFrame(1);
     setShowLevelUp(false);
     setCurrentTooltip(getRandomTooltip());
@@ -342,7 +322,6 @@ export default function DodgeCam() {
         setTimeout(() => {
           setCareerLevel(prev => prev + 1);
           setRomancePoints(0); // Reset romance points
-          setConsecutiveEarlyHides(0); // Reset early hides
           setCurrentTooltip(getRandomTooltip()); // New random tooltip
           // Reset spotlight with new random position and faster speed
           setSpotlight({
@@ -376,6 +355,20 @@ export default function DodgeCam() {
     return () => clearInterval(interval);
   }, [isHugging, gameState, careerLevel, showLevelUp]);
   
+  // Romance points decay when not hugging
+  useEffect(() => {
+    if (isHugging || gameState !== 'playing' || showLevelUp) return; // Don't decay while hugging, during level up, or when game over
+    
+    const decayInterval = setInterval(() => {
+      setRomancePoints(prev => {
+        if (prev <= 0) return 0; // Don't go below 0
+        return prev - 1; // Slowly decay points
+      });
+    }, 200); // Decay every 200ms (slower than gain rate)
+    
+    return () => clearInterval(decayInterval);
+  }, [isHugging, gameState, showLevelUp]);
+  
   const getEndMessage = () => {
     switch (gameState) {
       case 'caught':
@@ -383,12 +376,6 @@ export default function DodgeCam() {
           title: "YOU WENT VIRAL! 📹",
           subtitle: "The kiss cam got you! Check Slack on Monday...",
           buttonText: "Try Again Before It's On LinkedIn"
-        };
-      case 'dumped':
-        return {
-          title: "SHE LEFT YOU! 💔",
-          subtitle: "You played it too safe. HR moved to Procurement.",
-          buttonText: "Win Her Back"
         };
       case 'won':
         return {
@@ -616,11 +603,6 @@ export default function DodgeCam() {
                 </div>
               </div>
               
-              {consecutiveEarlyHides > 0 && (
-                <div className="text-xs text-orange-600 text-center">
-                  ⚠️ Early exits: {consecutiveEarlyHides}/3
-                </div>
-              )}
               
               {/* Debug Info */}
               {debugMode && (
