@@ -291,11 +291,11 @@ export default function DodgeCam() {
   // Check for game over when hugging and spotlight hits
   useEffect(() => {
     if (isHugging && isSpotlightOnPlayer() && gameState === 'playing' && !showLevelUp && romancePoints < 100) {
-      // Center spotlight over player when caught
+      // Center spotlight over player hitbox center when caught
       setSpotlight(prev => ({
         ...prev,
         x: PLAYER_POSITION_X,
-        y: PLAYER_POSITION_Y - 5, // Match the image position
+        y: PLAYER_POSITION_Y - 5 + PLAYER_HEIGHT / 2, // Center of the blue bounding box
       }));
       setGameState('caught');
     }
@@ -304,11 +304,11 @@ export default function DodgeCam() {
   // Handle level progression when points reach 100
   useEffect(() => {
     if (romancePoints >= 100 && !showLevelUp && gameState === 'playing') {
-      // Immediately move spotlight over the player for dramatic effect
+      // Immediately move spotlight over the player hitbox center for dramatic effect
       setSpotlight(prev => ({
         ...prev,
         x: PLAYER_POSITION_X,
-        y: PLAYER_POSITION_Y - 5, // Match the image position
+        y: PLAYER_POSITION_Y - 5 + PLAYER_HEIGHT / 2, // Center of the blue bounding box
       }));
       
       // Immediately trigger level progression
@@ -390,7 +390,7 @@ export default function DodgeCam() {
   
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-xl max-w-lg w-full overflow-hidden border border-gray-200">
+      <div className="bg-white rounded-3xl shadow-xl max-w-lg w-full h-[800px] flex flex-col overflow-hidden border border-gray-200">
         {/* Header */}
         <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 border-b border-gray-200">
           <div className="relative">
@@ -420,7 +420,7 @@ export default function DodgeCam() {
         {/* Game Area */}
         <div 
           ref={gameAreaRef}
-          className="relative h-80 bg-cover bg-center bg-no-repeat overflow-hidden bg-gray-800"
+          className="relative h-80 bg-cover bg-center bg-no-repeat overflow-hidden bg-gray-800 flex-shrink-0"
           style={{ backgroundImage: 'url(/crowd_v2.png)' }}
         >
           {/* Spotlight - Perfect circle */}
@@ -555,7 +555,7 @@ export default function DodgeCam() {
         </div>
         
         {/* Side Panel */}
-        <div className="bg-white p-6 space-y-4">
+        <div className="bg-white p-6 space-y-4 flex-1 flex flex-col min-h-0">
           {/* Romance Progress */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -573,8 +573,9 @@ export default function DodgeCam() {
           </div>
           
           {/* Controls */}
-          {gameState === 'playing' ? (
-            <div className="space-y-3">
+          <div className="flex-1 flex flex-col justify-between">
+            {gameState === 'playing' ? (
+              <div className="space-y-3">
               <button
                 onMouseDown={startHugging}
                 onMouseUp={stopHugging}
@@ -645,19 +646,22 @@ export default function DodgeCam() {
                   <div className="font-bold">Collision: {isSpotlightOnPlayer() ? '🔴 HIT' : '🟢 SAFE'}</div>
                 </div>
               )}
-            </div>
-          ) : (
-            <div className="text-center space-y-4">
-              <h2 className="text-xl font-bold text-gray-900">{getEndMessage().title}</h2>
-              <p className="text-gray-600 text-sm leading-relaxed">{getEndMessage().subtitle}</p>
-              <button
-                onClick={resetGame}
-                className="w-full py-4 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold transition-all duration-200"
-              >
-                {getEndMessage().buttonText}
-              </button>
-            </div>
-          )}
+              </div>
+            ) : (
+              <div className="text-center space-y-4 flex flex-col justify-center h-full">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">{getEndMessage().title}</h2>
+                  <p className="text-gray-600 text-sm leading-relaxed mt-2">{getEndMessage().subtitle}</p>
+                </div>
+                <button
+                  onClick={resetGame}
+                  className="w-full py-4 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold transition-all duration-200"
+                >
+                  {getEndMessage().buttonText}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
         
         {/* Bottom tooltip */}
