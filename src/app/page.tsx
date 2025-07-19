@@ -29,8 +29,8 @@ export default function DodgeCam() {
   const PLAYER_POSITION_X = 50; // Percentage from left where player is positioned
   const PLAYER_POSITION_Y = 65; // Percentage from top where player is positioned (moved up)
   const SPOTLIGHT_RADIUS = 8; // Percentage radius of spotlight
-  const PLAYER_WIDTH = 8; // Percentage width of player character
-  const PLAYER_HEIGHT = 8; // Percentage height of player character
+  const PLAYER_WIDTH = 6; // Percentage width of player character (narrower for new portrait images)
+  const PLAYER_HEIGHT = 10; // Percentage height of player character (taller for new portrait images)
   const MIN_HUG_TIME = 1000; // Minimum hug time in ms
   const DEBUG_MODE = true; // Set to false to hide debug visuals
   
@@ -122,10 +122,10 @@ export default function DodgeCam() {
     setIsHugging(true);
     hugStartTime.current = Date.now();
     
-    // Start hugging animation
+    // Start hugging animation - cycle through 15 frames
     const animateHug = () => {
-      setHugAnimationFrame(prev => prev === 1 ? 2 : 1);
-      hugAnimationRef.current = setTimeout(animateHug, 500); // Switch every 500ms
+      setHugAnimationFrame(prev => prev >= 15 ? 1 : prev + 1);
+      hugAnimationRef.current = setTimeout(animateHug, 100); // Switch every 100ms for smooth animation
     };
     animateHug();
   };
@@ -496,16 +496,16 @@ export default function DodgeCam() {
           
           {/* Player Characters */}
           <div 
-            className="absolute transform -translate-x-1/2 -translate-y-1/2 z-10"
+            className="absolute transform -translate-x-1/2 z-10"
             style={{ 
               left: `${PLAYER_POSITION_X}%`, 
-              top: `${PLAYER_POSITION_Y}%` 
+              top: `${PLAYER_POSITION_Y - 5}%` 
             }}
           >
             <img
-              src={isHugging ? `/useframe${hugAnimationFrame}.png` : "/useframe1.png"}
+              src={isHugging ? `/output_${hugAnimationFrame.toString().padStart(4, '0')}.png` : "/output_0001.png"}
               alt="CEO and HR"
-              className="w-20 h-20 object-cover transition-all duration-300 drop-shadow-xl"
+              className="w-10 object-contain transition-all duration-300 drop-shadow-xl"
             />
           </div>
           
