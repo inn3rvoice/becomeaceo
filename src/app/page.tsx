@@ -18,7 +18,9 @@ export default function DodgeCam() {
   const [showAnimation, setShowAnimation] = useState(false);
   const [hugAnimationFrame, setHugAnimationFrame] = useState(1);
   const [showLevelUp, setShowLevelUp] = useState(false);
-  const [currentTooltip, setCurrentTooltip] = useState('');
+  const [currentTooltip, setCurrentTooltip] = useState('Legal has joined the Zoom.');
+  const [nextTooltip, setNextTooltip] = useState('');
+  const [showCurrent, setShowCurrent] = useState(true);
   const [caughtAnimationFrame, setCaughtAnimationFrame] = useState(1);
   const [caughtAnimationPhase, setCaughtAnimationPhase] = useState<'initial' | 'loop'>('initial');
   
@@ -179,14 +181,21 @@ export default function DodgeCam() {
     }
   };
   
-  // Rotate tooltips every few seconds
+  // Cross-fade between notifications
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTooltip(getRandomTooltip());
-    }, 4000);
+    const cycleNotifications = () => {
+      if (showCurrent) {
+        setNextTooltip(getRandomTooltip());
+        setShowCurrent(false);
+      } else {
+        setCurrentTooltip(nextTooltip);
+        setShowCurrent(true);
+      }
+    };
     
+    const interval = setInterval(cycleNotifications, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [showCurrent, nextTooltip]);
   
   // Set initial tooltip
   useEffect(() => {
@@ -609,7 +618,7 @@ export default function DodgeCam() {
         </div>
         
         {/* Side Panel */}
-        <div className="bg-white p-6 space-y-4 flex-1 flex flex-col min-h-0">
+        <div className="bg-white p-6 space-y-4 flex-1 flex flex-col min-h-0 relative">
           {/* Romance Progress */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -710,11 +719,51 @@ export default function DodgeCam() {
               </div>
             )}
           </div>
-        </div>
-        
-        {/* Bottom tooltip */}
-        <div className="bg-gray-50 p-3 text-center border-t border-gray-100">
-          <p className="text-xs text-gray-500 transition-all duration-500">💼 {currentTooltip}</p>
+          
+          {/* Floating Slack-style notification */}
+          <div className="absolute bottom-4 left-4 right-4 bg-blue-50 border border-blue-200 rounded-lg shadow-lg p-3 z-10">
+            {/* Current message */}
+            <div 
+              className={`transition-opacity duration-200 ${
+                showCurrent ? 'opacity-100' : 'opacity-0'
+              }`}
+            >
+              <div className="flex items-start space-x-2">
+                <div className="text-blue-500 text-sm">💬</div>
+                <div className="flex-1">
+                  <div className="text-xs font-semibold text-blue-600">#compliance</div>
+                  <div className="text-xs text-gray-700 mt-1">{currentTooltip}</div>
+                </div>
+                <button 
+                  onClick={() => setShowCurrent(false)}
+                  className="text-gray-400 hover:text-gray-600 text-xs ml-2"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+            
+            {/* Next message - overlaid */}
+            <div 
+              className={`absolute inset-0 p-3 transition-opacity duration-200 ${
+                !showCurrent ? 'opacity-100' : 'opacity-0'
+              }`}
+            >
+              <div className="flex items-start space-x-2">
+                <div className="text-blue-500 text-sm">💬</div>
+                <div className="flex-1">
+                  <div className="text-xs font-semibold text-blue-600">#compliance</div>
+                  <div className="text-xs text-gray-700 mt-1">{nextTooltip}</div>
+                </div>
+                <button 
+                  onClick={() => setShowCurrent(true)}
+                  className="text-gray-400 hover:text-gray-600 text-xs ml-2"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
