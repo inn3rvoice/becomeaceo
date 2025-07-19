@@ -310,10 +310,52 @@ export default function DodgeCam() {
   
   // Check for game over when hugging and spotlight hits
   useEffect(() => {
-    if (isHugging && isSpotlightOnPlayer()) {
+    if (isHugging && isSpotlightOnPlayer() && gameState === 'playing' && !showLevelUp && romancePoints < 100) {
+      // Center spotlight over player when caught
+      setSpotlight(prev => ({
+        ...prev,
+        x: PLAYER_POSITION_X,
+        y: PLAYER_POSITION_Y - 5, // Match the image position
+      }));
       setGameState('caught');
     }
-  }, [isHugging, isSpotlightOnPlayer]);
+  }, [isHugging, isSpotlightOnPlayer, showLevelUp, gameState, romancePoints]);
+  
+  // Handle level progression when points reach 100
+  useEffect(() => {
+    if (romancePoints >= 100 && !showLevelUp && gameState === 'playing') {
+      // Immediately move spotlight over the player for dramatic effect
+      setSpotlight(prev => ({
+        ...prev,
+        x: PLAYER_POSITION_X,
+        y: PLAYER_POSITION_Y - 5, // Match the image position
+      }));
+      
+      // Immediately trigger level progression
+      if (careerLevel >= CAREER_LEVELS.length - 1) {
+        setGameState('won'); // Reached CEO!
+      } else {
+        // Show level up animation
+        setShowLevelUp(true);
+        
+        // Set a timeout to handle the level progression
+        setTimeout(() => {
+          setCareerLevel(prev => prev + 1);
+          setRomancePoints(0); // Reset romance points
+          setConsecutiveEarlyHides(0); // Reset early hides
+          setCurrentTooltip(getRandomTooltip()); // New random tooltip
+          // Reset spotlight with new random position and faster speed
+          setSpotlight({
+            x: Math.random() * 80 + 10,
+            y: Math.random() * 60 + 10,
+            dx: (Math.random() - 0.5) * 4,
+            dy: (Math.random() - 0.5) * 4
+          });
+          setShowLevelUp(false);
+        }, 2000);
+      }
+    }
+  }, [romancePoints, showLevelUp, gameState, careerLevel]);
   
   // Romance points increase while hugging
   useEffect(() => {
@@ -321,38 +363,13 @@ export default function DodgeCam() {
     
     const interval = setInterval(() => {
       setRomancePoints(prev => {
-        // Don't increment if we're already at 100 or above
-        if (prev >= 100) return prev;
+        // Don't increment if level up is already showing
+        if (showLevelUp) return prev;
         
-        const newPoints = prev + 1;
-        // Check if we've reached exactly 100 points to advance to next career level
-        if (newPoints === 100) {
-          // Show level up animation
-          setShowLevelUp(true);
-          
-          // Set a timeout to handle the level progression
-          setTimeout(() => {
-            setShowLevelUp(false);
-            if (careerLevel >= CAREER_LEVELS.length - 1) {
-              setGameState('won'); // Reached CEO!
-            } else {
-              setCareerLevel(prev => prev + 1);
-              setRomancePoints(0); // Reset romance points
-              setConsecutiveEarlyHides(0); // Reset early hides
-              setCurrentTooltip(getRandomTooltip()); // New random tooltip
-              // Reset spotlight with new random position and faster speed
-              setSpotlight({
-                x: Math.random() * 80 + 10,
-                y: Math.random() * 60 + 10,
-                dx: (Math.random() - 0.5) * 4,
-                dy: (Math.random() - 0.5) * 4
-              });
-            }
-          }, 2000);
-          
-          return 100; // Cap at exactly 100
-        }
-        return newPoints;
+        // Cap at 100 points
+        if (prev >= 100) return 100;
+        
+        return prev + 1;
       });
     }, 100);
     
@@ -562,10 +579,10 @@ export default function DodgeCam() {
             <div className="w-full bg-gray-200 rounded-full h-3">
               <div 
                 className="bg-gradient-to-r from-pink-400 to-red-500 h-3 rounded-full transition-all duration-300"
-                style={{ width: `${romancePoints}%` }}
+                style={{ width: `${Math.min(romancePoints, 100)}%` }}
               />
             </div>
-            <div className="text-right text-xs text-gray-500 mt-1">{romancePoints}/100</div>
+            <div className="text-right text-xs text-gray-500 mt-1">{Math.min(romancePoints, 100)}/100</div>
           </div>
           
           {/* Controls */}
