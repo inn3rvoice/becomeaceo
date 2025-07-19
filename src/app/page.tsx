@@ -354,6 +354,7 @@ export default function DodgeCam() {
       // Immediately trigger level progression
       if (careerLevel >= CAREER_LEVELS.length - 1) {
         setGameState('won'); // Reached CEO!
+        setIsHugging(true); // Keep hugging animation for celebration
       } else {
         // Show level up animation
         setShowLevelUp(true);
@@ -380,10 +381,11 @@ export default function DodgeCam() {
         // Don't increment if level up is already showing
         if (showLevelUp) return prev;
         
-        // Cap at 100 points
+        // Cap at 100 points - prevent jumping over
         if (prev >= 100) return 100;
         
-        return prev + 2; // Fill 2x faster
+        // Don't let it go over 100
+        return Math.min(100, prev + 2); // Fill 2x faster but cap at exactly 100
       });
     }, 100);
     
@@ -442,6 +444,23 @@ export default function DodgeCam() {
       }
     };
   }, [gameState]);
+
+  // Keep embrace animation running when won
+  useEffect(() => {
+    if (gameState !== 'won') return;
+    
+    const animateHug = () => {
+      setHugAnimationFrame(prev => prev >= 15 ? 1 : prev + 1);
+      hugAnimationRef.current = setTimeout(animateHug, 100);
+    };
+    animateHug();
+    
+    return () => {
+      if (hugAnimationRef.current) {
+        clearTimeout(hugAnimationRef.current);
+      }
+    };
+  }, [gameState]);
   
   const getEndMessage = () => {
     switch (gameState) {
@@ -468,7 +487,8 @@ export default function DodgeCam() {
         {/* Header */}
         <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 border-b border-gray-200">
           <div className="relative">
-            {/* Debug Toggle Button */}
+            {/* Debug Toggle Button - Hidden */}
+            {false && (
             <button
               onClick={() => setDebugMode(!debugMode)}
               className={`absolute top-0 right-0 px-3 py-1 rounded-full text-xs font-bold transition-all ${
@@ -479,6 +499,7 @@ export default function DodgeCam() {
             >
               {debugMode ? '🔧 DEBUG ON' : '🎮 PLAY MODE'}
             </button>
+            )}
             
             <div className="text-center">
               <h1 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 tracking-tight">BECOME A CEO</h1>
@@ -622,7 +643,7 @@ export default function DodgeCam() {
               src={
                 gameState === 'caught' 
                   ? `/caught/output_${caughtAnimationFrame.toString().padStart(4, '0')}.png`
-                  : isHugging 
+                  : (isHugging || gameState === 'won')
                     ? `/output_${hugAnimationFrame.toString().padStart(4, '0')}.png` 
                     : "/output_0001.png"
               }
@@ -649,6 +670,17 @@ export default function DodgeCam() {
                 <div className="text-2xl font-bold mb-2">PROMOTED! 🎉</div>
                 <div className="text-lg text-gray-700">{getCurrentTitle()}</div>
                 <div className="text-xs text-gray-500 mt-1">Spotlight getting faster...</div>
+              </div>
+            </div>
+          )}
+          
+          {/* Victory Celebration */}
+          {gameState === 'won' && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/30 z-20">
+              <div className="bg-gradient-to-br from-yellow-400 to-orange-500 text-white px-8 py-6 rounded-2xl text-center shadow-2xl animate-pulse">
+                <div className="text-3xl font-bold mb-2">🎉 CEO ACHIEVED! 🎉</div>
+                <div className="text-lg mb-1">Love conquers all!</div>
+                <div className="text-sm opacity-90">You've mastered the corporate game of hearts</div>
               </div>
             </div>
           )}
