@@ -15,19 +15,17 @@ export default function DodgeCam() {
   const [gameState, setGameState] = useState<'playing' | 'caught' | 'won'>('playing');
   const [careerLevel, setCareerLevel] = useState(0);
   const [spotlight, setSpotlight] = useState<SpotlightState>({ x: 20, y: 20, dx: 2, dy: 1.5 });
-  const [showAnimation, setShowAnimation] = useState(false);
   const [hugAnimationFrame, setHugAnimationFrame] = useState(1);
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [currentTooltip, setCurrentTooltip] = useState('Legal has joined the Zoom.');
   const [nextTooltip, setNextTooltip] = useState('');
   const [showCurrent, setShowCurrent] = useState(true);
   const [caughtAnimationFrame, setCaughtAnimationFrame] = useState(1);
-  const [caughtAnimationPhase, setCaughtAnimationPhase] = useState<'initial' | 'loop'>('initial');
   
   const gameAreaRef = useRef<HTMLDivElement>(null);
-  const animationRef = useRef<number>();
-  const hugAnimationRef = useRef<number>();
-  const caughtAnimationRef = useRef<number>();
+  const animationRef = useRef<number | undefined>(undefined);
+  const hugAnimationRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const caughtAnimationRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const hugStartTime = useRef<number>(0);
   
   const PLAYER_POSITION_X = 50; // Percentage from left where player is positioned
@@ -35,7 +33,6 @@ export default function DodgeCam() {
   const SPOTLIGHT_RADIUS = 5.6; // Percentage radius of spotlight (30% smaller: 8 * 0.7)
   const PLAYER_WIDTH = 8; // Percentage width of player character (matches w-10 class ~40px)
   const PLAYER_HEIGHT = 18; // Percentage height of player character (extended by 1/5 more to cover full image)
-  const MIN_HUG_TIME = 1000; // Minimum hug time in ms
   const [debugMode, setDebugMode] = useState(false); // Toggle debug mode with button
   
   // Career progression levels
@@ -44,36 +41,6 @@ export default function DodgeCam() {
     "Manager", "Sr. Manager", "Director", "VP", "SVP", "CEO"
   ];
   
-  // Tooltip humor pool
-  const TOOLTIPS = [
-    "Legal has joined the Zoom.",
-    "HR just enabled screen recording.",
-    "Slack DMs are being archived.",
-    "Compliance is drafting a docu-sign.",
-    "Your relationship is under quarterly review.",
-    "Someone just anonymously @'d you.",
-    "Every hug delays your Series B vesting.",
-    "You're one kiss from CTO… of Consequences.",
-    "This is not how you impress the board.",
-    "Real CEOs don't get caught hugging.",
-    "Do you want to end up in a shareholder memo?",
-    "You're 3 dodges away from your own TED Talk.",
-    "There's a Google Doc about you right now.",
-    "Karen from Ops is watching this.",
-    "Your calendar just got suspiciously busy.",
-    "Someone created a Notion page titled 'Incident 🧾'",
-    "LinkedIn just suggested a PR crisis manager.",
-    "CEO visibility increasing… dangerously.",
-    "HR romance policies last updated: 2 years ago. Uh oh.",
-    "The spotlight sees everything… including feelings.",
-    "This is how 'dating in stealth mode' ends.",
-    "Cupid's arrow now tracked via Salesforce.",
-    "Bro you're on the Jumbotron.",
-    "HR saw that. Twice.",
-    "This is why you're not in the founder circle.",
-    "Someone just clipped that for Slack.",
-    "You're getting memed in #watercooler."
-  ];
   
   const getSpotlightSpeed = useCallback(() => {
     return 0.5 + careerLevel * 0.25; // Gets faster with each career level
@@ -81,7 +48,38 @@ export default function DodgeCam() {
   
   const getCurrentTitle = () => CAREER_LEVELS[careerLevel] || "CEO";
   
-  const getRandomTooltip = () => TOOLTIPS[Math.floor(Math.random() * TOOLTIPS.length)];
+  const getRandomTooltip = useCallback(() => {
+    const tooltips = [
+      "Legal has joined the Zoom.",
+      "HR just enabled screen recording.",
+      "Slack DMs are being archived.",
+      "Compliance is drafting a docu-sign.",
+      "Your relationship is under quarterly review.",
+      "Someone just anonymously @'d you.",
+      "Every hug delays your Series B vesting.",
+      "You're one kiss from CTO… of Consequences.",
+      "This is not how you impress the board.",
+      "Real CEOs don't get caught hugging.",
+      "Do you want to end up in a shareholder memo?",
+      "You're 3 dodges away from your own TED Talk.",
+      "There's a Google Doc about you right now.",
+      "Karen from Ops is watching this.",
+      "Your calendar just got suspiciously busy.",
+      "Someone created a Notion page titled 'Incident 🧾'",
+      "LinkedIn just suggested a PR crisis manager.",
+      "CEO visibility increasing… dangerously.",
+      "HR romance policies last updated: 2 years ago. Uh oh.",
+      "The spotlight sees everything… including feelings.",
+      "This is how 'dating in stealth mode' ends.",
+      "Cupid's arrow now tracked via Salesforce.",
+      "Bro you're on the Jumbotron.",
+      "HR saw that. Twice.",
+      "This is why you're not in the founder circle.",
+      "Someone just clipped that for Slack.",
+      "You're getting memed in #watercooler."
+    ];
+    return tooltips[Math.floor(Math.random() * tooltips.length)];
+  }, []);
   
   const isSpotlightOnPlayer = useCallback(() => {
     if (!gameAreaRef.current) return false;
@@ -138,7 +136,6 @@ export default function DodgeCam() {
     if (!isHugging || gameState !== 'playing') return;
     
     setIsHugging(false);
-    setShowAnimation(true);
     
     // Stop hugging animation
     if (hugAnimationRef.current) {
@@ -154,8 +151,7 @@ export default function DodgeCam() {
     
     // Hide animation after short delay
     setTimeout(() => {
-      setShowAnimation(false);
-      // Don't restart spotlight - let it continue on its trajectory
+        // Don't restart spotlight - let it continue on its trajectory
     }, 500);
   };
   
@@ -165,12 +161,10 @@ export default function DodgeCam() {
     setRomancePoints(0);
     setSpotlight({ x: 20, y: 20, dx: 2, dy: 1.5 });
     setIsHugging(false);
-    setShowAnimation(false);
     setHugAnimationFrame(1);
     setShowLevelUp(false);
     setCurrentTooltip(getRandomTooltip());
     setCaughtAnimationFrame(1);
-    setCaughtAnimationPhase('initial');
     
     // Clear any running animations
     if (hugAnimationRef.current) {
@@ -195,12 +189,12 @@ export default function DodgeCam() {
     
     const interval = setInterval(cycleNotifications, 3000);
     return () => clearInterval(interval);
-  }, [showCurrent, nextTooltip]);
+  }, [showCurrent, nextTooltip, getRandomTooltip]);
   
   // Set initial tooltip
   useEffect(() => {
     setCurrentTooltip(getRandomTooltip());
-  }, []);
+  }, [getRandomTooltip]);
   
   // Debug: Manual spotlight control
   useEffect(() => {
@@ -244,14 +238,15 @@ export default function DodgeCam() {
       });
     };
     
-    if (gameAreaRef.current) {
-      gameAreaRef.current.addEventListener('mousemove', handleMouseMove);
+    const gameArea = gameAreaRef.current;
+    if (gameArea) {
+      gameArea.addEventListener('mousemove', handleMouseMove);
     }
     document.addEventListener('keydown', handleKeyDown);
     
     return () => {
-      if (gameAreaRef.current) {
-        gameAreaRef.current.removeEventListener('mousemove', handleMouseMove);
+      if (gameArea) {
+        gameArea.removeEventListener('mousemove', handleMouseMove);
       }
       document.removeEventListener('keydown', handleKeyDown);
     };
@@ -351,7 +346,7 @@ export default function DodgeCam() {
         }, 2000);
       }
     }
-  }, [romancePoints, showLevelUp, gameState, careerLevel]);
+  }, [romancePoints, showLevelUp, gameState, careerLevel, getRandomTooltip, CAREER_LEVELS.length]);
   
   // Romance points increase while hugging
   useEffect(() => {
@@ -416,7 +411,6 @@ export default function DodgeCam() {
     
     // Start the animation
     setCaughtAnimationFrame(1);
-    setCaughtAnimationPhase('initial');
     animateCaught();
     
     return () => {
@@ -585,6 +579,7 @@ export default function DodgeCam() {
               top: `${PLAYER_POSITION_Y - 5}%` 
             }}
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={
                 gameState === 'caught' 
@@ -644,20 +639,36 @@ export default function DodgeCam() {
                 onMouseUp={stopHugging}
                 onTouchStart={startHugging}
                 onTouchEnd={stopHugging}
-                className={`w-full py-4 rounded-xl font-bold text-white transition-all duration-200 select-none ${
+                className={`w-full py-4 px-6 rounded-2xl font-bold text-white transition-all duration-200 select-none flex items-center justify-center gap-2 shadow-lg ${
                   isHugging 
-                    ? 'bg-red-500 shadow-lg scale-[0.98]' 
-                    : 'bg-blue-500 hover:bg-blue-600 shadow-md'
+                    ? 'bg-gradient-to-r from-red-500 to-red-600 scale-[0.96] shadow-inner' 
+                    : 'bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 hover:scale-[1.02] shadow-xl'
                 }`}
+                style={{ 
+                  boxShadow: isHugging 
+                    ? 'inset 0 2px 4px rgba(0,0,0,0.2), 0 4px 8px rgba(0,0,0,0.1)' 
+                    : '0 8px 20px rgba(0,0,0,0.15), 0 4px 6px rgba(0,0,0,0.1)'
+                }}
               >
-                TOUCH BASE
+                <span className="text-lg">{isHugging ? '🚨' : '👀'}</span>
+                <span>TOUCH BASE</span>
               </button>
               
               {/* Career Progress */}
-              <div className="text-center">
-                <span className="text-sm text-gray-600">{getCurrentTitle()}</span>
-                <div className="text-xs text-gray-400 mt-1">
-                  {careerLevel + 1}/{CAREER_LEVELS.length} to CEO
+              <div className="text-center bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl p-4 border border-gray-200">
+                <div className="text-sm font-semibold text-gray-700">{getCurrentTitle()}</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Level {careerLevel + 1} of {CAREER_LEVELS.length}
+                </div>
+                <div className="flex items-center justify-center mt-2 space-x-1">
+                  {Array.from({ length: CAREER_LEVELS.length }).map((_, i) => (
+                    <div
+                      key={i}
+                      className={`w-2 h-2 rounded-full transition-colors ${
+                        i <= careerLevel ? 'bg-purple-500' : 'bg-gray-300'
+                      }`}
+                    />
+                  ))}
                 </div>
               </div>
               
@@ -705,16 +716,20 @@ export default function DodgeCam() {
               )}
               </div>
             ) : (
-              <div className="text-center space-y-4 flex flex-col justify-center h-full">
+              <div className="text-center space-y-4 flex flex-col justify-start pt-4">
                 <div>
                   <h2 className="text-xl font-bold text-gray-900">{getEndMessage().title}</h2>
                   <p className="text-gray-600 text-sm leading-relaxed mt-2">{getEndMessage().subtitle}</p>
                 </div>
                 <button
                   onClick={resetGame}
-                  className="w-full py-4 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold transition-all duration-200"
+                  className="w-full py-4 px-6 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-2xl font-bold transition-all duration-200 shadow-xl hover:scale-[1.02] flex items-center justify-center gap-2"
+                  style={{ 
+                    boxShadow: '0 8px 20px rgba(0,0,0,0.15), 0 4px 6px rgba(0,0,0,0.1)'
+                  }}
                 >
-                  {getEndMessage().buttonText}
+                  <span className="text-lg">🔄</span>
+                  <span>{getEndMessage().buttonText}</span>
                 </button>
               </div>
             )}
