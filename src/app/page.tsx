@@ -10,11 +10,19 @@ interface SpotlightState {
 }
 
 export default function DodgeCam() {
+  // Generate random starting spotlight position
+  const generateRandomSpotlight = () => ({
+    x: Math.random() * 80 + 10, // Random X between 10% and 90%
+    y: Math.random() * 60 + 10, // Random Y between 10% and 70%
+    dx: (Math.random() - 0.5) * 4, // Random X velocity between -2 and 2
+    dy: (Math.random() - 0.5) * 3 // Random Y velocity between -1.5 and 1.5
+  });
+
   const [isHugging, setIsHugging] = useState(false);
   const [romancePoints, setRomancePoints] = useState(0);
   const [gameState, setGameState] = useState<'playing' | 'caught' | 'won'>('playing');
   const [careerLevel, setCareerLevel] = useState(0);
-  const [spotlight, setSpotlight] = useState<SpotlightState>({ x: 20, y: 20, dx: 2, dy: 1.5 });
+  const [spotlight, setSpotlight] = useState<SpotlightState>(generateRandomSpotlight());
   const [hugAnimationFrame, setHugAnimationFrame] = useState(1);
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [currentTooltip, setCurrentTooltip] = useState('Legal has joined the Zoom.');
@@ -103,20 +111,40 @@ export default function DodgeCam() {
     const playerWidthPx = (PLAYER_WIDTH / 100) * gameWidth;
     const playerHeightPx = (PLAYER_HEIGHT / 100) * gameHeight;
     
-    const rectLeft = playerXPx - playerWidthPx / 2;
-    const rectRight = playerXPx + playerWidthPx / 2;
-    const rectTop = playerYPx; // Top-aligned like the image
-    const rectBottom = playerYPx + playerHeightPx;
+    // Split into upper and lower halves
+    const halfHeight = playerHeightPx / 2;
+    const midY = playerYPx + halfHeight;
     
-    // Check if circle overlaps with rectangle using closest point method
-    const closestX = Math.max(rectLeft, Math.min(circleXPx, rectRight));
-    const closestY = Math.max(rectTop, Math.min(circleYPx, rectBottom));
+    // Upper half: 50% width
+    const upperWidthPx = playerWidthPx * 0.5;
+    const upperLeft = playerXPx - upperWidthPx / 2;
+    const upperRight = playerXPx + upperWidthPx / 2;
+    const upperTop = playerYPx;
+    const upperBottom = midY;
     
-    const dx = circleXPx - closestX;
-    const dy = circleYPx - closestY;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+    // Lower half: full width
+    const lowerLeft = playerXPx - playerWidthPx / 2;
+    const lowerRight = playerXPx + playerWidthPx / 2;
+    const lowerTop = midY;
+    const lowerBottom = playerYPx + playerHeightPx;
     
-    return distance <= radiusPx;
+    // Check collision with upper half
+    const upperClosestX = Math.max(upperLeft, Math.min(circleXPx, upperRight));
+    const upperClosestY = Math.max(upperTop, Math.min(circleYPx, upperBottom));
+    const upperDx = circleXPx - upperClosestX;
+    const upperDy = circleYPx - upperClosestY;
+    const upperDistance = Math.sqrt(upperDx * upperDx + upperDy * upperDy);
+    const upperCollision = upperDistance <= radiusPx;
+    
+    // Check collision with lower half
+    const lowerClosestX = Math.max(lowerLeft, Math.min(circleXPx, lowerRight));
+    const lowerClosestY = Math.max(lowerTop, Math.min(circleYPx, lowerBottom));
+    const lowerDx = circleXPx - lowerClosestX;
+    const lowerDy = circleYPx - lowerClosestY;
+    const lowerDistance = Math.sqrt(lowerDx * lowerDx + lowerDy * lowerDy);
+    const lowerCollision = lowerDistance <= radiusPx;
+    
+    return upperCollision || lowerCollision;
   }, [spotlight.x, spotlight.y]);
   
   const startHugging = () => {
@@ -159,7 +187,7 @@ export default function DodgeCam() {
     setGameState('playing');
     setCareerLevel(0);
     setRomancePoints(0);
-    setSpotlight({ x: 20, y: 20, dx: 2, dy: 1.5 });
+    setSpotlight(generateRandomSpotlight());
     setIsHugging(false);
     setHugAnimationFrame(1);
     setShowLevelUp(false);
@@ -336,12 +364,7 @@ export default function DodgeCam() {
           setRomancePoints(0); // Reset romance points
           setCurrentTooltip(getRandomTooltip()); // New random tooltip
           // Reset spotlight with new random position and faster speed
-          setSpotlight({
-            x: Math.random() * 80 + 10,
-            y: Math.random() * 60 + 10,
-            dx: (Math.random() - 0.5) * 4,
-            dy: (Math.random() - 0.5) * 4
-          });
+          setSpotlight(generateRandomSpotlight());
           setShowLevelUp(false);
         }, 2000);
       }
@@ -544,16 +567,31 @@ export default function DodgeCam() {
             />
           )}
           
-          {/* Debug: Player hitbox rectangle */}
+          {/* Debug: Player hitbox - Upper half (50% width) */}
           {debugMode && (
             <div
               className="absolute border-4 border-blue-600 pointer-events-none z-20"
               style={{
-                left: `${PLAYER_POSITION_X - PLAYER_WIDTH / 2}%`,
+                left: `${PLAYER_POSITION_X - (PLAYER_WIDTH * 0.5) / 2}%`,
                 top: `${PLAYER_POSITION_Y - 5}%`,
+                width: `${PLAYER_WIDTH * 0.5}%`,
+                height: `${PLAYER_HEIGHT / 2}%`,
+                backgroundColor: isSpotlightOnPlayer() ? 'rgba(255, 0, 0, 0.5)' : 'rgba(0, 0, 255, 0.3)',
+                boxShadow: '0 0 0 2px white',
+              }}
+            />
+          )}
+          
+          {/* Debug: Player hitbox - Lower half (full width) */}
+          {debugMode && (
+            <div
+              className="absolute border-4 border-green-600 pointer-events-none z-20"
+              style={{
+                left: `${PLAYER_POSITION_X - PLAYER_WIDTH / 2}%`,
+                top: `${PLAYER_POSITION_Y - 5 + PLAYER_HEIGHT / 2}%`,
                 width: `${PLAYER_WIDTH}%`,
-                height: `${PLAYER_HEIGHT}%`,
-                backgroundColor: isSpotlightOnPlayer() ? 'rgba(255, 0, 0, 0.5)' : 'rgba(0, 0, 255, 0.2)',
+                height: `${PLAYER_HEIGHT / 2}%`,
+                backgroundColor: isSpotlightOnPlayer() ? 'rgba(255, 0, 0, 0.5)' : 'rgba(0, 255, 0, 0.3)',
                 boxShadow: '0 0 0 2px white',
               }}
             />
