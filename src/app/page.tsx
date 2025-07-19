@@ -28,11 +28,11 @@ export default function DodgeCam() {
   
   const PLAYER_POSITION_X = 50; // Percentage from left where player is positioned
   const PLAYER_POSITION_Y = 65; // Percentage from top where player is positioned (moved up)
-  const SPOTLIGHT_RADIUS = 8; // Percentage radius of spotlight
+  const SPOTLIGHT_RADIUS = 5.6; // Percentage radius of spotlight (30% smaller: 8 * 0.7)
   const PLAYER_WIDTH = 8; // Percentage width of player character (matches w-10 class ~40px)
   const PLAYER_HEIGHT = 18; // Percentage height of player character (extended by 1/5 more to cover full image)
   const MIN_HUG_TIME = 1000; // Minimum hug time in ms
-  const DEBUG_MODE = true; // Set to false to hide debug visuals
+  const [debugMode, setDebugMode] = useState(false); // Toggle debug mode with button
   
   // Career progression levels
   const CAREER_LEVELS = [
@@ -207,7 +207,7 @@ export default function DodgeCam() {
   
   // Debug: Manual spotlight control
   useEffect(() => {
-    if (!DEBUG_MODE) return;
+    if (!debugMode) return;
     
     const handleMouseMove = (e: MouseEvent) => {
       if (gameAreaRef.current) {
@@ -258,11 +258,11 @@ export default function DodgeCam() {
       }
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [DEBUG_MODE]);
+  }, [debugMode]);
   
   // Game loop for spotlight movement
   useEffect(() => {
-    if (gameState !== 'playing' || DEBUG_MODE) return; // Disable auto movement in debug mode
+    if (gameState !== 'playing' || debugMode) return; // Disable auto movement in debug mode
     
     const animate = () => {
       setSpotlight(prev => {
@@ -306,7 +306,7 @@ export default function DodgeCam() {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [gameState, getSpotlightSpeed]);
+  }, [gameState, getSpotlightSpeed, debugMode]);
   
   // Check for game over when hugging and spotlight hits
   useEffect(() => {
@@ -317,19 +317,22 @@ export default function DodgeCam() {
   
   // Romance points increase while hugging
   useEffect(() => {
-    if (!isHugging || gameState !== 'playing') return;
+    if (!isHugging || gameState !== 'playing' || showLevelUp) return; // Stop during level up
     
     const interval = setInterval(() => {
       setRomancePoints(prev => {
+        // Don't increment if we're already at 100 or above
+        if (prev >= 100) return prev;
+        
         const newPoints = prev + 1;
-        // Check if we've reached 100 points to advance to next career level
-        if (newPoints >= 100) {
+        // Check if we've reached exactly 100 points to advance to next career level
+        if (newPoints === 100) {
           // Show level up animation
           setShowLevelUp(true);
-          setTimeout(() => setShowLevelUp(false), 2000);
           
-          // Advance to next career level
+          // Set a timeout to handle the level progression
           setTimeout(() => {
+            setShowLevelUp(false);
             if (careerLevel >= CAREER_LEVELS.length - 1) {
               setGameState('won'); // Reached CEO!
             } else {
@@ -345,15 +348,16 @@ export default function DodgeCam() {
                 dy: (Math.random() - 0.5) * 4
               });
             }
-          }, 1000);
-          return 100; // Cap at 100
+          }, 2000);
+          
+          return 100; // Cap at exactly 100
         }
         return newPoints;
       });
     }, 100);
     
     return () => clearInterval(interval);
-  }, [isHugging, gameState, careerLevel]);
+  }, [isHugging, gameState, careerLevel, showLevelUp]);
   
   const getEndMessage = () => {
     switch (gameState) {
@@ -384,10 +388,28 @@ export default function DodgeCam() {
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl shadow-xl max-w-lg w-full overflow-hidden border border-gray-200">
         {/* Header */}
-        <div className="bg-white p-6 border-b border-gray-100">
-          <div className="text-center">
-            <h1 className="text-xl font-bold text-gray-900 tracking-tight">BECOME A CEO</h1>
-            <div className="text-sm text-gray-600 mt-1">Current Title: {getCurrentTitle()}</div>
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 border-b border-gray-200">
+          <div className="relative">
+            {/* Debug Toggle Button */}
+            <button
+              onClick={() => setDebugMode(!debugMode)}
+              className={`absolute top-0 right-0 px-3 py-1 rounded-full text-xs font-bold transition-all ${
+                debugMode 
+                  ? 'bg-red-500 text-white hover:bg-red-600' 
+                  : 'bg-green-500 text-white hover:bg-green-600'
+              }`}
+            >
+              {debugMode ? '🔧 DEBUG ON' : '🎮 PLAY MODE'}
+            </button>
+            
+            <div className="text-center">
+              <h1 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 tracking-tight">BECOME A CEO</h1>
+              <div className="text-base font-semibold text-gray-700 mt-2 flex items-center justify-center gap-2">
+                <span className="text-blue-500">📊</span>
+                <span>Current Title:</span>
+                <span className="text-indigo-600 font-bold">{getCurrentTitle()}</span>
+              </div>
+            </div>
           </div>
         </div>
         
@@ -413,7 +435,7 @@ export default function DodgeCam() {
           />
           
           {/* Debug: Spotlight exact boundary */}
-          {DEBUG_MODE && (
+          {debugMode && (
             <div
               className="absolute rounded-full pointer-events-none border-4 border-red-600 z-20"
               style={{
@@ -429,7 +451,7 @@ export default function DodgeCam() {
           )}
           
           {/* Debug: Spotlight center point */}
-          {DEBUG_MODE && (
+          {debugMode && (
             <div
               className="absolute w-2 h-2 bg-red-600 pointer-events-none rounded-full"
               style={{
@@ -441,7 +463,7 @@ export default function DodgeCam() {
           )}
           
           {/* Debug: Visual spotlight center (should match red dot) */}
-          {DEBUG_MODE && (
+          {debugMode && (
             <div
               className="absolute w-2 h-2 bg-yellow-400 pointer-events-none rounded-full z-30"
               style={{
@@ -454,7 +476,7 @@ export default function DodgeCam() {
           
           
           {/* Debug: Expanded collision zone */}
-          {DEBUG_MODE && (
+          {debugMode && (
             <div
               className="absolute border-2 border-green-500 pointer-events-none z-15 opacity-40"
               style={{
@@ -468,7 +490,7 @@ export default function DodgeCam() {
           )}
           
           {/* Debug: Player hitbox rectangle */}
-          {DEBUG_MODE && (
+          {debugMode && (
             <div
               className="absolute border-4 border-blue-600 pointer-events-none z-20"
               style={{
@@ -483,7 +505,7 @@ export default function DodgeCam() {
           )}
           
           {/* Debug: Player center point */}
-          {DEBUG_MODE && (
+          {debugMode && (
             <div
               className="absolute w-1 h-1 bg-blue-600 pointer-events-none z-20"
               style={{
@@ -584,7 +606,7 @@ export default function DodgeCam() {
               )}
               
               {/* Debug Info */}
-              {DEBUG_MODE && (
+              {debugMode && (
                 <div className="text-xs text-gray-500 space-y-1 p-2 bg-gray-100 rounded">
                   <div className="text-blue-600 font-bold">🎮 MANUAL CONTROL:</div>
                   <div>• Mouse over game area to move spotlight</div>
