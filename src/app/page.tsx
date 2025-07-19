@@ -13,11 +13,13 @@ export default function DodgeCam() {
   const [isHugging, setIsHugging] = useState(false);
   const [romancePoints, setRomancePoints] = useState(0);
   const [gameState, setGameState] = useState<'playing' | 'caught' | 'won' | 'dumped'>('playing');
-  const [round, setRound] = useState(1);
+  const [careerLevel, setCareerLevel] = useState(0);
   const [spotlight, setSpotlight] = useState<SpotlightState>({ x: 20, y: 20, dx: 2, dy: 1.5 });
   const [showAnimation, setShowAnimation] = useState(false);
   const [consecutiveEarlyHides, setConsecutiveEarlyHides] = useState(0);
   const [hugAnimationFrame, setHugAnimationFrame] = useState(1);
+  const [showLevelUp, setShowLevelUp] = useState(false);
+  const [currentTooltip, setCurrentTooltip] = useState('');
   
   const gameAreaRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number>();
@@ -27,19 +29,105 @@ export default function DodgeCam() {
   const PLAYER_POSITION_X = 50; // Percentage from left where player is positioned
   const PLAYER_POSITION_Y = 65; // Percentage from top where player is positioned (moved up)
   const SPOTLIGHT_RADIUS = 8; // Percentage radius of spotlight
-  const MAX_ROUNDS = 5;
+  const PLAYER_WIDTH = 8; // Percentage width of player character
+  const PLAYER_HEIGHT = 8; // Percentage height of player character
   const MIN_HUG_TIME = 1000; // Minimum hug time in ms
+  const DEBUG_MODE = true; // Set to false to hide debug visuals
+  
+  // Career progression levels
+  const CAREER_LEVELS = [
+    "Intern", "Associate", "Sr. Individual Contributor", "Team Lead", 
+    "Manager", "Sr. Manager", "Director", "VP", "SVP", "CEO"
+  ];
+  
+  // Tooltip humor pool
+  const TOOLTIPS = [
+    "Legal has joined the Zoom.",
+    "HR just enabled screen recording.",
+    "Slack DMs are being archived.",
+    "Compliance is drafting a docu-sign.",
+    "Your relationship is under quarterly review.",
+    "Someone just anonymously @'d you.",
+    "Every hug delays your Series B vesting.",
+    "You're one kiss from CTO… of Consequences.",
+    "This is not how you impress the board.",
+    "Real CEOs don't get caught hugging.",
+    "Do you want to end up in a shareholder memo?",
+    "You're 3 dodges away from your own TED Talk.",
+    "There's a Google Doc about you right now.",
+    "Karen from Ops is watching this.",
+    "Your calendar just got suspiciously busy.",
+    "Someone created a Notion page titled 'Incident 🧾'",
+    "LinkedIn just suggested a PR crisis manager.",
+    "CEO visibility increasing… dangerously.",
+    "HR romance policies last updated: 2 years ago. Uh oh.",
+    "The spotlight sees everything… including feelings.",
+    "This is how 'dating in stealth mode' ends.",
+    "Cupid's arrow now tracked via Salesforce.",
+    "Bro you're on the Jumbotron.",
+    "HR saw that. Twice.",
+    "This is why you're not in the founder circle.",
+    "Someone just clipped that for Slack.",
+    "You're getting memed in #watercooler."
+  ];
   
   const getSpotlightSpeed = useCallback(() => {
-    return 0.5 + (round - 1) * 0.25; // Starts slower but still medium baseline, increases each round
-  }, [round]);
+    return 0.5 + careerLevel * 0.25; // Gets faster with each career level
+  }, [careerLevel]);
+  
+  const getCurrentTitle = () => CAREER_LEVELS[careerLevel] || "CEO";
+  
+  const getRandomTooltip = () => TOOLTIPS[Math.floor(Math.random() * TOOLTIPS.length)];
   
   const isSpotlightOnPlayer = useCallback(() => {
-    const distance = Math.sqrt(
-      Math.pow(spotlight.x - PLAYER_POSITION_X, 2) + 
-      Math.pow(spotlight.y - PLAYER_POSITION_Y, 2)
-    );
-    return distance < SPOTLIGHT_RADIUS; // Accurate hitbox matching spotlight size
+    // Player rectangle bounds (in percentage coordinates)
+    const playerLeft = PLAYER_POSITION_X - PLAYER_WIDTH / 2;
+    const playerRight = PLAYER_POSITION_X + PLAYER_WIDTH / 2;
+    const playerTop = PLAYER_POSITION_Y - PLAYER_HEIGHT / 2;
+    const playerBottom = PLAYER_POSITION_Y + PLAYER_HEIGHT / 2;
+    
+    // Spotlight circle (in percentage coordinates)
+    const spotlightCenterX = spotlight.x;
+    const spotlightCenterY = spotlight.y;
+    const spotlightRadius = SPOTLIGHT_RADIUS;
+    
+    // Method 1: Check if circle center is inside rectangle
+    if (spotlightCenterX >= playerLeft && spotlightCenterX <= playerRight &&
+        spotlightCenterY >= playerTop && spotlightCenterY <= playerBottom) {
+      return true;
+    }
+    
+    // Method 2: Check key points on circle circumference
+    const checkPoints = [
+      // Top, Right, Bottom, Left
+      { x: spotlightCenterX, y: spotlightCenterY - spotlightRadius }, // Top
+      { x: spotlightCenterX + spotlightRadius, y: spotlightCenterY }, // Right  
+      { x: spotlightCenterX, y: spotlightCenterY + spotlightRadius }, // Bottom
+      { x: spotlightCenterX - spotlightRadius, y: spotlightCenterY }, // Left
+      // Diagonals
+      { x: spotlightCenterX + spotlightRadius * 0.707, y: spotlightCenterY - spotlightRadius * 0.707 }, // Top-right
+      { x: spotlightCenterX + spotlightRadius * 0.707, y: spotlightCenterY + spotlightRadius * 0.707 }, // Bottom-right
+      { x: spotlightCenterX - spotlightRadius * 0.707, y: spotlightCenterY + spotlightRadius * 0.707 }, // Bottom-left
+      { x: spotlightCenterX - spotlightRadius * 0.707, y: spotlightCenterY - spotlightRadius * 0.707 }, // Top-left
+    ];
+    
+    // Check if any point on circle circumference is inside rectangle
+    for (const point of checkPoints) {
+      if (point.x >= playerLeft && point.x <= playerRight &&
+          point.y >= playerTop && point.y <= playerBottom) {
+        return true;
+      }
+    }
+    
+    // Method 3: Standard circle-rectangle collision (as backup)
+    const closestX = Math.max(playerLeft, Math.min(spotlightCenterX, playerRight));
+    const closestY = Math.max(playerTop, Math.min(spotlightCenterY, playerBottom));
+    
+    const dx = spotlightCenterX - closestX;
+    const dy = spotlightCenterY - closestY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    return distance <= spotlightRadius;
   }, [spotlight.x, spotlight.y]);
   
   const startHugging = () => {
@@ -94,38 +182,41 @@ export default function DodgeCam() {
     // Hide animation after short delay
     setTimeout(() => {
       setShowAnimation(false);
-      
-      // Next round or win
-      if (round >= MAX_ROUNDS) {
-        setGameState('won');
-      } else {
-        setRound(prev => prev + 1);
-        // Reset spotlight with random position and direction
-        setSpotlight({
-          x: Math.random() * 80 + 10,
-          y: Math.random() * 60 + 10,
-          dx: (Math.random() - 0.5) * 4,
-          dy: (Math.random() - 0.5) * 4
-        });
-      }
+      // Don't restart spotlight - let it continue on its trajectory
     }, 500);
   };
   
   const resetGame = () => {
     setGameState('playing');
-    setRound(1);
+    setCareerLevel(0);
     setRomancePoints(0);
     setSpotlight({ x: 20, y: 20, dx: 2, dy: 1.5 });
     setIsHugging(false);
     setShowAnimation(false);
     setConsecutiveEarlyHides(0);
     setHugAnimationFrame(1);
+    setShowLevelUp(false);
+    setCurrentTooltip(getRandomTooltip());
     
     // Clear any running animation
     if (hugAnimationRef.current) {
       clearTimeout(hugAnimationRef.current);
     }
   };
+  
+  // Rotate tooltips every few seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTooltip(getRandomTooltip());
+    }, 4000);
+    
+    return () => clearInterval(interval);
+  }, []);
+  
+  // Set initial tooltip
+  useEffect(() => {
+    setCurrentTooltip(getRandomTooltip());
+  }, []);
   
   // Game loop for spotlight movement
   useEffect(() => {
@@ -187,11 +278,40 @@ export default function DodgeCam() {
     if (!isHugging || gameState !== 'playing') return;
     
     const interval = setInterval(() => {
-      setRomancePoints(prev => prev + 1);
+      setRomancePoints(prev => {
+        const newPoints = prev + 1;
+        // Check if we've reached 100 points to advance to next career level
+        if (newPoints >= 100) {
+          // Show level up animation
+          setShowLevelUp(true);
+          setTimeout(() => setShowLevelUp(false), 2000);
+          
+          // Advance to next career level
+          setTimeout(() => {
+            if (careerLevel >= CAREER_LEVELS.length - 1) {
+              setGameState('won'); // Reached CEO!
+            } else {
+              setCareerLevel(prev => prev + 1);
+              setRomancePoints(0); // Reset romance points
+              setConsecutiveEarlyHides(0); // Reset early hides
+              setCurrentTooltip(getRandomTooltip()); // New random tooltip
+              // Reset spotlight with new random position and faster speed
+              setSpotlight({
+                x: Math.random() * 80 + 10,
+                y: Math.random() * 60 + 10,
+                dx: (Math.random() - 0.5) * 4,
+                dy: (Math.random() - 0.5) * 4
+              });
+            }
+          }, 1000);
+          return 100; // Cap at 100
+        }
+        return newPoints;
+      });
     }, 100);
     
     return () => clearInterval(interval);
-  }, [isHugging, gameState]);
+  }, [isHugging, gameState, careerLevel]);
   
   const getEndMessage = () => {
     switch (gameState) {
@@ -209,9 +329,9 @@ export default function DodgeCam() {
         };
       case 'won':
         return {
-          title: "TRUE LOVE UNSCATHED! ❤️",
-          subtitle: `Romance Level: ${romancePoints}. You made it through all rounds!`,
-          buttonText: "Play Again"
+          title: "CONGRATULATIONS, CEO! 🎉",
+          subtitle: `You've reached the top! Your love life survived the corporate ladder.`,
+          buttonText: "Start New Career"
         };
       default:
         return { title: "", subtitle: "", buttonText: "" };
@@ -224,7 +344,8 @@ export default function DodgeCam() {
         {/* Header */}
         <div className="bg-white p-6 border-b border-gray-100">
           <div className="text-center">
-            <h1 className="text-xl font-bold text-gray-900 tracking-tight">DODGE THE KISS CAM</h1>
+            <h1 className="text-xl font-bold text-gray-900 tracking-tight">BECOME A CEO</h1>
+            <div className="text-sm text-gray-600 mt-1">Current Title: {getCurrentTitle()}</div>
           </div>
         </div>
         
@@ -248,6 +369,120 @@ export default function DodgeCam() {
             }}
           />
           
+          {/* Debug: Spotlight exact boundary */}
+          {DEBUG_MODE && (
+            <div
+              className="absolute rounded-full pointer-events-none border-4 border-red-600 z-20"
+              style={{
+                left: `${spotlight.x - SPOTLIGHT_RADIUS}%`,
+                top: `${spotlight.y - SPOTLIGHT_RADIUS}%`,
+                width: `${SPOTLIGHT_RADIUS * 2}%`,
+                aspectRatio: '1 / 1',
+                backgroundColor: 'rgba(255, 0, 0, 0.1)',
+                boxShadow: '0 0 0 2px white',
+              }}
+            />
+          )}
+          
+          {/* Debug: Spotlight center point */}
+          {DEBUG_MODE && (
+            <div
+              className="absolute w-1 h-1 bg-red-600 pointer-events-none"
+              style={{
+                left: `${spotlight.x}%`,
+                top: `${spotlight.y}%`,
+                transform: 'translate(-50%, -50%)',
+              }}
+            />
+          )}
+          
+          {/* Debug: Circle circumference check points */}
+          {DEBUG_MODE && (
+            <>
+              {/* Top point */}
+              <div
+                className="absolute w-3 h-3 bg-yellow-400 pointer-events-none z-30 border-2 border-white"
+                style={{
+                  left: `${spotlight.x}%`,
+                  top: `${spotlight.y - SPOTLIGHT_RADIUS}%`,
+                  transform: 'translate(-50%, -50%)',
+                  boxShadow: '0 0 0 2px black',
+                }}
+              />
+              {/* Right point */}
+              <div
+                className="absolute w-3 h-3 bg-yellow-400 pointer-events-none z-30 border-2 border-white"
+                style={{
+                  left: `${spotlight.x + SPOTLIGHT_RADIUS}%`,
+                  top: `${spotlight.y}%`,
+                  transform: 'translate(-50%, -50%)',
+                  boxShadow: '0 0 0 2px black',
+                }}
+              />
+              {/* Bottom point - MAKE IT SUPER OBVIOUS */}
+              <div
+                className="absolute w-4 h-4 bg-red-500 pointer-events-none z-40 border-2 border-yellow-300"
+                style={{
+                  left: `${spotlight.x}%`,
+                  top: `${spotlight.y + SPOTLIGHT_RADIUS}%`,
+                  transform: 'translate(-50%, -50%)',
+                  boxShadow: '0 0 0 2px white, 0 0 10px red',
+                }}
+              />
+              {/* Left point */}
+              <div
+                className="absolute w-3 h-3 bg-yellow-400 pointer-events-none z-30 border-2 border-white"
+                style={{
+                  left: `${spotlight.x - SPOTLIGHT_RADIUS}%`,
+                  top: `${spotlight.y}%`,
+                  transform: 'translate(-50%, -50%)',
+                  boxShadow: '0 0 0 2px black',
+                }}
+              />
+            </>
+          )}
+          
+          {/* Debug: Expanded collision area */}
+          {DEBUG_MODE && (
+            <div
+              className="absolute border-2 border-green-400 pointer-events-none z-15 opacity-30"
+              style={{
+                left: `${PLAYER_POSITION_X - PLAYER_WIDTH / 2 - SPOTLIGHT_RADIUS}%`,
+                top: `${PLAYER_POSITION_Y - PLAYER_HEIGHT / 2 - SPOTLIGHT_RADIUS}%`,
+                width: `${PLAYER_WIDTH + SPOTLIGHT_RADIUS * 2}%`,
+                height: `${PLAYER_HEIGHT + SPOTLIGHT_RADIUS * 2}%`,
+                backgroundColor: 'rgba(0, 255, 0, 0.1)',
+              }}
+            />
+          )}
+          
+          {/* Debug: Player hitbox rectangle */}
+          {DEBUG_MODE && (
+            <div
+              className="absolute border-4 border-blue-600 pointer-events-none z-20"
+              style={{
+                left: `${PLAYER_POSITION_X - PLAYER_WIDTH / 2}%`,
+                top: `${PLAYER_POSITION_Y - PLAYER_HEIGHT / 2}%`,
+                width: `${PLAYER_WIDTH}%`,
+                height: `${PLAYER_HEIGHT}%`,
+                backgroundColor: isSpotlightOnPlayer() ? 'rgba(255, 0, 0, 0.5)' : 'rgba(0, 0, 255, 0.2)',
+                boxShadow: '0 0 0 2px white',
+              }}
+            />
+          )}
+          
+          {/* Debug: Player center point */}
+          {DEBUG_MODE && (
+            <div
+              className="absolute w-1 h-1 bg-blue-600 pointer-events-none z-20"
+              style={{
+                left: `${PLAYER_POSITION_X}%`,
+                top: `${PLAYER_POSITION_Y}%`,
+                transform: 'translate(-50%, -50%)',
+              }}
+            />
+          )}
+          
           {/* Player Characters */}
           <div 
             className="absolute transform -translate-x-1/2 -translate-y-1/2 z-10"
@@ -269,24 +504,35 @@ export default function DodgeCam() {
               📹 KISS CAM
             </div>
           )}
+          
+          {/* Career Promotion Notification */}
+          {showLevelUp && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-20">
+              <div className="bg-white text-gray-900 px-8 py-6 rounded-2xl text-center shadow-2xl animate-bounce">
+                <div className="text-2xl font-bold mb-2">PROMOTED! 🎉</div>
+                <div className="text-lg text-gray-700">{getCurrentTitle()}</div>
+                <div className="text-xs text-gray-500 mt-1">Spotlight getting faster...</div>
+              </div>
+            </div>
+          )}
         </div>
         
         {/* Side Panel */}
         <div className="bg-white p-6 space-y-4">
-          {/* Romance Meter */}
+          {/* Romance Progress */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-700 flex items-center gap-1">
-                ❤️ Romance Meter
+                You & HR ❤️
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-3">
               <div 
                 className="bg-gradient-to-r from-pink-400 to-red-500 h-3 rounded-full transition-all duration-300"
-                style={{ width: `${Math.min(100, (romancePoints / 50) * 100)}%` }}
+                style={{ width: `${romancePoints}%` }}
               />
             </div>
-            <div className="text-right text-xs text-gray-500 mt-1">{romancePoints}</div>
+            <div className="text-right text-xs text-gray-500 mt-1">{romancePoints}/100</div>
           </div>
           
           {/* Controls */}
@@ -312,14 +558,75 @@ export default function DodgeCam() {
                 PAUSE
               </button>
               
-              {/* Level indicator */}
+              {/* Career Progress */}
               <div className="text-center">
-                <span className="text-sm text-gray-600">Level {round} - Offsite</span>
+                <span className="text-sm text-gray-600">{getCurrentTitle()}</span>
+                <div className="text-xs text-gray-400 mt-1">
+                  {careerLevel + 1}/{CAREER_LEVELS.length} to CEO
+                </div>
               </div>
               
               {consecutiveEarlyHides > 0 && (
                 <div className="text-xs text-orange-600 text-center">
                   ⚠️ Early exits: {consecutiveEarlyHides}/3
+                </div>
+              )}
+              
+              {/* Debug Info */}
+              {DEBUG_MODE && (
+                <div className="text-xs text-gray-500 space-y-1 p-2 bg-gray-100 rounded">
+                  <div>Spotlight: ({spotlight.x.toFixed(1)}, {spotlight.y.toFixed(1)}) R:{SPOTLIGHT_RADIUS}</div>
+                  <div>Player Rect: ({(PLAYER_POSITION_X - PLAYER_WIDTH/2).toFixed(1)}, {(PLAYER_POSITION_Y - PLAYER_HEIGHT/2).toFixed(1)}) to ({(PLAYER_POSITION_X + PLAYER_WIDTH/2).toFixed(1)}, {(PLAYER_POSITION_Y + PLAYER_HEIGHT/2).toFixed(1)})</div>
+                  <div className="font-bold">Collision: {isSpotlightOnPlayer() ? '🔴 HIT' : '🟢 SAFE'}</div>
+                  <div>
+                    Key Points Check: {(() => {
+                      const playerLeft = PLAYER_POSITION_X - PLAYER_WIDTH / 2;
+                      const playerRight = PLAYER_POSITION_X + PLAYER_WIDTH / 2;
+                      const playerTop = PLAYER_POSITION_Y - PLAYER_HEIGHT / 2;
+                      const playerBottom = PLAYER_POSITION_Y + PLAYER_HEIGHT / 2;
+                      
+                      const checkPoints = [
+                        { x: spotlight.x, y: spotlight.y - SPOTLIGHT_RADIUS, name: 'Top' },
+                        { x: spotlight.x + SPOTLIGHT_RADIUS, y: spotlight.y, name: 'Right' },  
+                        { x: spotlight.x, y: spotlight.y + SPOTLIGHT_RADIUS, name: 'Bottom' },
+                        { x: spotlight.x - SPOTLIGHT_RADIUS, y: spotlight.y, name: 'Left' },
+                      ];
+                      
+                      const hits = checkPoints.filter(point => 
+                        point.x >= playerLeft && point.x <= playerRight &&
+                        point.y >= playerTop && point.y <= playerBottom
+                      );
+                      
+                      return hits.length > 0 ? hits.map(h => h.name).join(', ') : 'None';
+                    })()}
+                  </div>
+                  <div>
+                    Bottom Point: ({spotlight.x.toFixed(1)}, {(spotlight.y + SPOTLIGHT_RADIUS).toFixed(1)})
+                  </div>
+                  <div>
+                    Red dot should be at: {spotlight.x.toFixed(1)}%, {(spotlight.y + SPOTLIGHT_RADIUS).toFixed(1)}%
+                  </div>
+                  <div>
+                    Spotlight center: {spotlight.x.toFixed(1)}%, {spotlight.y.toFixed(1)}%
+                  </div>
+                  <div>
+                    Radius: {SPOTLIGHT_RADIUS}%
+                  </div>
+                  <div>
+                    Bottom Y calc: {spotlight.y.toFixed(1)} + {SPOTLIGHT_RADIUS} = {(spotlight.y + SPOTLIGHT_RADIUS).toFixed(1)}%
+                  </div>
+                  <div>
+                    Is bottom point in rect? {(() => {
+                      const playerLeft = PLAYER_POSITION_X - PLAYER_WIDTH / 2;
+                      const playerRight = PLAYER_POSITION_X + PLAYER_WIDTH / 2;
+                      const playerTop = PLAYER_POSITION_Y - PLAYER_HEIGHT / 2;
+                      const playerBottom = PLAYER_POSITION_Y + PLAYER_HEIGHT / 2;
+                      const bottomX = spotlight.x;
+                      const bottomY = spotlight.y + SPOTLIGHT_RADIUS;
+                      const inRect = bottomX >= playerLeft && bottomX <= playerRight && bottomY >= playerTop && bottomY <= playerBottom;
+                      return inRect ? 'YES' : 'NO';
+                    })()}
+                  </div>
                 </div>
               )}
             </div>
@@ -337,9 +644,9 @@ export default function DodgeCam() {
           )}
         </div>
         
-        {/* Bottom text */}
+        {/* Bottom tooltip */}
         <div className="bg-gray-50 p-3 text-center border-t border-gray-100">
-          <p className="text-xs text-gray-500">💼 Legal is watching...</p>
+          <p className="text-xs text-gray-500 transition-all duration-500">💼 {currentTooltip}</p>
         </div>
       </div>
     </div>
