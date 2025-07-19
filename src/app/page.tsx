@@ -80,54 +80,41 @@ export default function DodgeCam() {
   const getRandomTooltip = () => TOOLTIPS[Math.floor(Math.random() * TOOLTIPS.length)];
   
   const isSpotlightOnPlayer = useCallback(() => {
-    // Player rectangle bounds (in percentage coordinates)
-    const playerLeft = PLAYER_POSITION_X - PLAYER_WIDTH / 2;
-    const playerRight = PLAYER_POSITION_X + PLAYER_WIDTH / 2;
-    const playerTop = PLAYER_POSITION_Y - PLAYER_HEIGHT / 2;
-    const playerBottom = PLAYER_POSITION_Y + PLAYER_HEIGHT / 2;
+    if (!gameAreaRef.current) return false;
     
-    // Spotlight circle (in percentage coordinates)
-    const spotlightCenterX = spotlight.x;
-    const spotlightCenterY = spotlight.y;
-    const spotlightRadius = SPOTLIGHT_RADIUS;
+    // Get actual dimensions of game area
+    const rect = gameAreaRef.current.getBoundingClientRect();
+    const gameWidth = rect.width;
+    const gameHeight = rect.height;
     
-    // Method 1: Check if circle center is inside rectangle
-    if (spotlightCenterX >= playerLeft && spotlightCenterX <= playerRight &&
-        spotlightCenterY >= playerTop && spotlightCenterY <= playerBottom) {
-      return true;
-    }
+    // Convert percentage positions to actual pixels
+    const circleXPx = (spotlight.x / 100) * gameWidth;
+    const circleYPx = (spotlight.y / 100) * gameHeight;
     
-    // Method 2: Check key points on circle circumference
-    const checkPoints = [
-      // Top, Right, Bottom, Left
-      { x: spotlightCenterX, y: spotlightCenterY - spotlightRadius }, // Top
-      { x: spotlightCenterX + spotlightRadius, y: spotlightCenterY }, // Right  
-      { x: spotlightCenterX, y: spotlightCenterY + spotlightRadius }, // Bottom
-      { x: spotlightCenterX - spotlightRadius, y: spotlightCenterY }, // Left
-      // Diagonals
-      { x: spotlightCenterX + spotlightRadius * 0.707, y: spotlightCenterY - spotlightRadius * 0.707 }, // Top-right
-      { x: spotlightCenterX + spotlightRadius * 0.707, y: spotlightCenterY + spotlightRadius * 0.707 }, // Bottom-right
-      { x: spotlightCenterX - spotlightRadius * 0.707, y: spotlightCenterY + spotlightRadius * 0.707 }, // Bottom-left
-      { x: spotlightCenterX - spotlightRadius * 0.707, y: spotlightCenterY - spotlightRadius * 0.707 }, // Top-left
-    ];
+    // Calculate actual radius in pixels - spotlight uses width percentage with aspect-ratio 1:1
+    // So the radius in pixels is based on the width percentage of the game area width
+    const radiusPx = (SPOTLIGHT_RADIUS / 100) * gameWidth;
     
-    // Check if any point on circle circumference is inside rectangle
-    for (const point of checkPoints) {
-      if (point.x >= playerLeft && point.x <= playerRight &&
-          point.y >= playerTop && point.y <= playerBottom) {
-        return true;
-      }
-    }
+    // Player rectangle bounds in pixels
+    const playerXPx = (PLAYER_POSITION_X / 100) * gameWidth;
+    const playerYPx = (PLAYER_POSITION_Y / 100) * gameHeight;
+    const playerWidthPx = (PLAYER_WIDTH / 100) * gameWidth;
+    const playerHeightPx = (PLAYER_HEIGHT / 100) * gameHeight;
     
-    // Method 3: Standard circle-rectangle collision (as backup)
-    const closestX = Math.max(playerLeft, Math.min(spotlightCenterX, playerRight));
-    const closestY = Math.max(playerTop, Math.min(spotlightCenterY, playerBottom));
+    const rectLeft = playerXPx - playerWidthPx / 2;
+    const rectRight = playerXPx + playerWidthPx / 2;
+    const rectTop = playerYPx - playerHeightPx / 2;
+    const rectBottom = playerYPx + playerHeightPx / 2;
     
-    const dx = spotlightCenterX - closestX;
-    const dy = spotlightCenterY - closestY;
+    // Check if circle overlaps with rectangle using closest point method
+    const closestX = Math.max(rectLeft, Math.min(circleXPx, rectRight));
+    const closestY = Math.max(rectTop, Math.min(circleYPx, rectBottom));
+    
+    const dx = circleXPx - closestX;
+    const dy = circleYPx - closestY;
     const distance = Math.sqrt(dx * dx + dy * dy);
     
-    return distance <= spotlightRadius;
+    return distance <= radiusPx;
   }, [spotlight.x, spotlight.y]);
   
   const startHugging = () => {
@@ -218,9 +205,64 @@ export default function DodgeCam() {
     setCurrentTooltip(getRandomTooltip());
   }, []);
   
+  // Debug: Manual spotlight control
+  useEffect(() => {
+    if (!DEBUG_MODE) return;
+    
+    const handleMouseMove = (e: MouseEvent) => {
+      if (gameAreaRef.current) {
+        const rect = gameAreaRef.current.getBoundingClientRect();
+        // Calculate mouse position as percentage, ensuring spotlight center follows mouse exactly
+        const x = ((e.clientX - rect.left) / rect.width) * 100;
+        const y = ((e.clientY - rect.top) / rect.height) * 100;
+        // Clamp to ensure spotlight doesn't go outside bounds
+        const clampedX = Math.max(SPOTLIGHT_RADIUS, Math.min(100 - SPOTLIGHT_RADIUS, x));
+        const clampedY = Math.max(SPOTLIGHT_RADIUS, Math.min(100 - SPOTLIGHT_RADIUS, y));
+        setSpotlight(prev => ({ ...prev, x: clampedX, y: clampedY }));
+      }
+    };
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const speed = 2;
+      setSpotlight(prev => {
+        let newX = prev.x;
+        let newY = prev.y;
+        
+        switch(e.key) {
+          case 'ArrowLeft':
+            newX = Math.max(0, prev.x - speed);
+            break;
+          case 'ArrowRight':
+            newX = Math.min(100, prev.x + speed);
+            break;
+          case 'ArrowUp':
+            newY = Math.max(0, prev.y - speed);
+            break;
+          case 'ArrowDown':
+            newY = Math.min(100, prev.y + speed);
+            break;
+        }
+        
+        return { ...prev, x: newX, y: newY };
+      });
+    };
+    
+    if (gameAreaRef.current) {
+      gameAreaRef.current.addEventListener('mousemove', handleMouseMove);
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    
+    return () => {
+      if (gameAreaRef.current) {
+        gameAreaRef.current.removeEventListener('mousemove', handleMouseMove);
+      }
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [DEBUG_MODE]);
+  
   // Game loop for spotlight movement
   useEffect(() => {
-    if (gameState !== 'playing') return;
+    if (gameState !== 'playing' || DEBUG_MODE) return; // Disable auto movement in debug mode
     
     const animate = () => {
       setSpotlight(prev => {
@@ -359,10 +401,11 @@ export default function DodgeCam() {
           <div
             className="absolute rounded-full pointer-events-none"
             style={{
-              left: `${spotlight.x - SPOTLIGHT_RADIUS}%`,
-              top: `${spotlight.y - SPOTLIGHT_RADIUS}%`,
+              left: `${spotlight.x}%`,
+              top: `${spotlight.y}%`,
               width: `${SPOTLIGHT_RADIUS * 2}%`,
               aspectRatio: '1 / 1',
+              transform: 'translate(-50%, -50%)',
               background: 'radial-gradient(circle, rgba(255, 255, 255, 0.8) 0%, rgba(255, 240, 150, 0.9) 30%, rgba(255, 200, 100, 0.7) 70%, rgba(255, 150, 0, 0.3) 100%)',
               boxShadow: `0 0 80px rgba(255, 220, 100, 0.8), inset 0 0 40px rgba(255, 255, 255, 0.4)`,
               border: '4px solid rgba(255, 255, 255, 0.9)',
@@ -374,10 +417,11 @@ export default function DodgeCam() {
             <div
               className="absolute rounded-full pointer-events-none border-4 border-red-600 z-20"
               style={{
-                left: `${spotlight.x - SPOTLIGHT_RADIUS}%`,
-                top: `${spotlight.y - SPOTLIGHT_RADIUS}%`,
+                left: `${spotlight.x}%`,
+                top: `${spotlight.y}%`,
                 width: `${SPOTLIGHT_RADIUS * 2}%`,
                 aspectRatio: '1 / 1',
+                transform: 'translate(-50%, -50%)',
                 backgroundColor: 'rgba(255, 0, 0, 0.1)',
                 boxShadow: '0 0 0 2px white',
               }}
@@ -387,7 +431,7 @@ export default function DodgeCam() {
           {/* Debug: Spotlight center point */}
           {DEBUG_MODE && (
             <div
-              className="absolute w-1 h-1 bg-red-600 pointer-events-none"
+              className="absolute w-2 h-2 bg-red-600 pointer-events-none rounded-full"
               style={{
                 left: `${spotlight.x}%`,
                 top: `${spotlight.y}%`,
@@ -396,56 +440,23 @@ export default function DodgeCam() {
             />
           )}
           
-          {/* Debug: Circle circumference check points */}
-          {DEBUG_MODE && (
-            <>
-              {/* Top point */}
-              <div
-                className="absolute w-3 h-3 bg-yellow-400 pointer-events-none z-30 border-2 border-white"
-                style={{
-                  left: `${spotlight.x}%`,
-                  top: `${spotlight.y - SPOTLIGHT_RADIUS}%`,
-                  transform: 'translate(-50%, -50%)',
-                  boxShadow: '0 0 0 2px black',
-                }}
-              />
-              {/* Right point */}
-              <div
-                className="absolute w-3 h-3 bg-yellow-400 pointer-events-none z-30 border-2 border-white"
-                style={{
-                  left: `${spotlight.x + SPOTLIGHT_RADIUS}%`,
-                  top: `${spotlight.y}%`,
-                  transform: 'translate(-50%, -50%)',
-                  boxShadow: '0 0 0 2px black',
-                }}
-              />
-              {/* Bottom point - MAKE IT SUPER OBVIOUS */}
-              <div
-                className="absolute w-4 h-4 bg-red-500 pointer-events-none z-40 border-2 border-yellow-300"
-                style={{
-                  left: `${spotlight.x}%`,
-                  top: `${spotlight.y + SPOTLIGHT_RADIUS}%`,
-                  transform: 'translate(-50%, -50%)',
-                  boxShadow: '0 0 0 2px white, 0 0 10px red',
-                }}
-              />
-              {/* Left point */}
-              <div
-                className="absolute w-3 h-3 bg-yellow-400 pointer-events-none z-30 border-2 border-white"
-                style={{
-                  left: `${spotlight.x - SPOTLIGHT_RADIUS}%`,
-                  top: `${spotlight.y}%`,
-                  transform: 'translate(-50%, -50%)',
-                  boxShadow: '0 0 0 2px black',
-                }}
-              />
-            </>
-          )}
-          
-          {/* Debug: Expanded collision area */}
+          {/* Debug: Visual spotlight center (should match red dot) */}
           {DEBUG_MODE && (
             <div
-              className="absolute border-2 border-green-400 pointer-events-none z-15 opacity-30"
+              className="absolute w-2 h-2 bg-yellow-400 pointer-events-none rounded-full z-30"
+              style={{
+                left: `${spotlight.x - SPOTLIGHT_RADIUS + SPOTLIGHT_RADIUS}%`,
+                top: `${spotlight.y - SPOTLIGHT_RADIUS + SPOTLIGHT_RADIUS}%`,
+                transform: 'translate(-50%, -50%)',
+              }}
+            />
+          )}
+          
+          
+          {/* Debug: Expanded collision zone */}
+          {DEBUG_MODE && (
+            <div
+              className="absolute border-2 border-green-500 pointer-events-none z-15 opacity-40"
               style={{
                 left: `${PLAYER_POSITION_X - PLAYER_WIDTH / 2 - SPOTLIGHT_RADIUS}%`,
                 top: `${PLAYER_POSITION_Y - PLAYER_HEIGHT / 2 - SPOTLIGHT_RADIUS}%`,
@@ -575,58 +586,42 @@ export default function DodgeCam() {
               {/* Debug Info */}
               {DEBUG_MODE && (
                 <div className="text-xs text-gray-500 space-y-1 p-2 bg-gray-100 rounded">
-                  <div>Spotlight: ({spotlight.x.toFixed(1)}, {spotlight.y.toFixed(1)}) R:{SPOTLIGHT_RADIUS}</div>
-                  <div>Player Rect: ({(PLAYER_POSITION_X - PLAYER_WIDTH/2).toFixed(1)}, {(PLAYER_POSITION_Y - PLAYER_HEIGHT/2).toFixed(1)}) to ({(PLAYER_POSITION_X + PLAYER_WIDTH/2).toFixed(1)}, {(PLAYER_POSITION_Y + PLAYER_HEIGHT/2).toFixed(1)})</div>
+                  <div className="text-blue-600 font-bold">🎮 MANUAL CONTROL:</div>
+                  <div>• Mouse over game area to move spotlight</div>
+                  <div>• Arrow keys for precise movement</div>
+                  <div className="border-t pt-1 mt-2"></div>
+                  <div>Spotlight: ({spotlight.x.toFixed(1)}, {spotlight.y.toFixed(1)}%)</div>
+                  <div>Player: ({PLAYER_POSITION_X}, {PLAYER_POSITION_Y}%) Size: {PLAYER_WIDTH}x{PLAYER_HEIGHT}%</div>
+                  <div className="font-bold">Distance (px): {(() => {
+                    if (!gameAreaRef.current) return "N/A";
+                    const rect = gameAreaRef.current.getBoundingClientRect();
+                    const gameWidth = rect.width;
+                    const gameHeight = rect.height;
+                    
+                    const circleXPx = (spotlight.x / 100) * gameWidth;
+                    const circleYPx = (spotlight.y / 100) * gameHeight;
+                    const radiusPx = (SPOTLIGHT_RADIUS / 100) * gameWidth;
+                    
+                    const playerXPx = (PLAYER_POSITION_X / 100) * gameWidth;
+                    const playerYPx = (PLAYER_POSITION_Y / 100) * gameHeight;
+                    const playerWidthPx = (PLAYER_WIDTH / 100) * gameWidth;
+                    const playerHeightPx = (PLAYER_HEIGHT / 100) * gameHeight;
+                    
+                    const rectLeft = playerXPx - playerWidthPx / 2;
+                    const rectRight = playerXPx + playerWidthPx / 2;
+                    const rectTop = playerYPx - playerHeightPx / 2;
+                    const rectBottom = playerYPx + playerHeightPx / 2;
+                    
+                    const closestX = Math.max(rectLeft, Math.min(circleXPx, rectRight));
+                    const closestY = Math.max(rectTop, Math.min(circleYPx, rectBottom));
+                    
+                    const dx = circleXPx - closestX;
+                    const dy = circleYPx - closestY;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    return `${distance.toFixed(1)} (need ≤ ${radiusPx.toFixed(1)})`;
+                  })()}</div>
                   <div className="font-bold">Collision: {isSpotlightOnPlayer() ? '🔴 HIT' : '🟢 SAFE'}</div>
-                  <div>
-                    Key Points Check: {(() => {
-                      const playerLeft = PLAYER_POSITION_X - PLAYER_WIDTH / 2;
-                      const playerRight = PLAYER_POSITION_X + PLAYER_WIDTH / 2;
-                      const playerTop = PLAYER_POSITION_Y - PLAYER_HEIGHT / 2;
-                      const playerBottom = PLAYER_POSITION_Y + PLAYER_HEIGHT / 2;
-                      
-                      const checkPoints = [
-                        { x: spotlight.x, y: spotlight.y - SPOTLIGHT_RADIUS, name: 'Top' },
-                        { x: spotlight.x + SPOTLIGHT_RADIUS, y: spotlight.y, name: 'Right' },  
-                        { x: spotlight.x, y: spotlight.y + SPOTLIGHT_RADIUS, name: 'Bottom' },
-                        { x: spotlight.x - SPOTLIGHT_RADIUS, y: spotlight.y, name: 'Left' },
-                      ];
-                      
-                      const hits = checkPoints.filter(point => 
-                        point.x >= playerLeft && point.x <= playerRight &&
-                        point.y >= playerTop && point.y <= playerBottom
-                      );
-                      
-                      return hits.length > 0 ? hits.map(h => h.name).join(', ') : 'None';
-                    })()}
-                  </div>
-                  <div>
-                    Bottom Point: ({spotlight.x.toFixed(1)}, {(spotlight.y + SPOTLIGHT_RADIUS).toFixed(1)})
-                  </div>
-                  <div>
-                    Red dot should be at: {spotlight.x.toFixed(1)}%, {(spotlight.y + SPOTLIGHT_RADIUS).toFixed(1)}%
-                  </div>
-                  <div>
-                    Spotlight center: {spotlight.x.toFixed(1)}%, {spotlight.y.toFixed(1)}%
-                  </div>
-                  <div>
-                    Radius: {SPOTLIGHT_RADIUS}%
-                  </div>
-                  <div>
-                    Bottom Y calc: {spotlight.y.toFixed(1)} + {SPOTLIGHT_RADIUS} = {(spotlight.y + SPOTLIGHT_RADIUS).toFixed(1)}%
-                  </div>
-                  <div>
-                    Is bottom point in rect? {(() => {
-                      const playerLeft = PLAYER_POSITION_X - PLAYER_WIDTH / 2;
-                      const playerRight = PLAYER_POSITION_X + PLAYER_WIDTH / 2;
-                      const playerTop = PLAYER_POSITION_Y - PLAYER_HEIGHT / 2;
-                      const playerBottom = PLAYER_POSITION_Y + PLAYER_HEIGHT / 2;
-                      const bottomX = spotlight.x;
-                      const bottomY = spotlight.y + SPOTLIGHT_RADIUS;
-                      const inRect = bottomX >= playerLeft && bottomX <= playerRight && bottomY >= playerTop && bottomY <= playerBottom;
-                      return inRect ? 'YES' : 'NO';
-                    })()}
-                  </div>
                 </div>
               )}
             </div>
