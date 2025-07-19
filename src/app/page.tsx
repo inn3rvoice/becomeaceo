@@ -628,6 +628,10 @@ export default function DodgeCam() {
               }
               alt="CEO and HR"
               className="w-10 object-contain transition-all duration-300 drop-shadow-xl"
+              style={{
+                maskImage: 'radial-gradient(circle at center, rgba(0,0,0,1) 60%, rgba(0,0,0,0.9) 80%, rgba(0,0,0,0) 100%)',
+                WebkitMaskImage: 'radial-gradient(circle at center, rgba(0,0,0,1) 60%, rgba(0,0,0,0.9) 80%, rgba(0,0,0,0) 100%)'
+              }}
             />
           </div>
           
