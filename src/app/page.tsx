@@ -495,7 +495,7 @@ export default function DodgeCam() {
   };
   
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 md:py-8 py-2">
       <div className="bg-white rounded-3xl shadow-xl max-w-lg w-full h-[670px] flex flex-col overflow-hidden border border-gray-200 relative">
         {/* Header */}
         <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 border-b border-gray-200">
