@@ -25,6 +25,7 @@ export default function DodgeCam() {
   const [spotlight, setSpotlight] = useState<SpotlightState>(generateRandomSpotlight());
   const [hugAnimationFrame, setHugAnimationFrame] = useState(1);
   const [showLevelUp, setShowLevelUp] = useState(false);
+  const [promotionBuffer, setPromotionBuffer] = useState(false);
   const [currentTooltip, setCurrentTooltip] = useState('Legal has joined the Zoom.');
   const [nextTooltip, setNextTooltip] = useState('');
   const [showCurrent, setShowCurrent] = useState(true);
@@ -191,6 +192,7 @@ export default function DodgeCam() {
     setIsHugging(false);
     setHugAnimationFrame(1);
     setShowLevelUp(false);
+    setPromotionBuffer(false);
     setCurrentTooltip(getRandomTooltip());
     setCaughtAnimationFrame(1);
     
@@ -330,7 +332,7 @@ export default function DodgeCam() {
   
   // Check for game over when hugging and spotlight hits
   useEffect(() => {
-    if (isHugging && isSpotlightOnPlayer() && gameState === 'playing' && !showLevelUp && romancePoints < 100) {
+    if (isHugging && isSpotlightOnPlayer() && gameState === 'playing' && !showLevelUp && !promotionBuffer && romancePoints < 100) {
       // Center spotlight over player hitbox center when caught
       setSpotlight(prev => ({
         ...prev,
@@ -339,7 +341,7 @@ export default function DodgeCam() {
       }));
       setGameState('caught');
     }
-  }, [isHugging, isSpotlightOnPlayer, showLevelUp, gameState, romancePoints]);
+  }, [isHugging, isSpotlightOnPlayer, showLevelUp, gameState, romancePoints, promotionBuffer]);
   
   // Handle level progression when points reach 100
   useEffect(() => {
@@ -356,8 +358,9 @@ export default function DodgeCam() {
         setGameState('won'); // Reached CEO!
         setIsHugging(true); // Keep hugging animation for celebration
       } else {
-        // Show level up animation
+        // Show level up animation and set promotion buffer
         setShowLevelUp(true);
+        setPromotionBuffer(true);
         
         // Set a timeout to handle the level progression
         setTimeout(() => {
@@ -367,6 +370,11 @@ export default function DodgeCam() {
           // Reset spotlight with new random position and faster speed
           setSpotlight(generateRandomSpotlight());
           setShowLevelUp(false);
+          
+          // Clear promotion buffer after a short delay to prevent accidental viral loss
+          setTimeout(() => {
+            setPromotionBuffer(false);
+          }, 500);
         }, 2000);
       }
     }
