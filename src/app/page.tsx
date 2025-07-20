@@ -346,6 +346,12 @@ export default function DodgeCam() {
   // Handle level progression when points reach 100
   useEffect(() => {
     if (romancePoints >= 100 && !showLevelUp && gameState === 'playing') {
+      // IMMEDIATELY set promotion buffer to prevent any collision detection
+      setPromotionBuffer(true);
+      
+      // Force stop hugging to prevent any edge cases
+      setIsHugging(false);
+      
       // Immediately move spotlight over the player hitbox center for dramatic effect
       setSpotlight(prev => ({
         ...prev,
@@ -358,9 +364,8 @@ export default function DodgeCam() {
         setGameState('won'); // Reached CEO!
         setIsHugging(true); // Keep hugging animation for celebration
       } else {
-        // Show level up animation and set promotion buffer
+        // Show level up animation
         setShowLevelUp(true);
-        setPromotionBuffer(true);
         
         // Set a timeout to handle the level progression
         setTimeout(() => {
@@ -371,10 +376,10 @@ export default function DodgeCam() {
           setSpotlight(generateRandomSpotlight());
           setShowLevelUp(false);
           
-          // Clear promotion buffer after a short delay to prevent accidental viral loss
+          // Clear promotion buffer after a longer delay to prevent accidental viral loss
           setTimeout(() => {
             setPromotionBuffer(false);
-          }, 500);
+          }, 1000);
         }, 2000);
       }
     }
