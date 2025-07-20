@@ -680,7 +680,7 @@ export default function DodgeCam() {
               <div className="bg-gradient-to-br from-yellow-400 to-orange-500 text-white px-8 py-6 rounded-2xl text-center shadow-2xl animate-pulse">
                 <div className="text-3xl font-bold mb-2">🎉 CEO ACHIEVED! 🎉</div>
                 <div className="text-lg mb-1">Love conquers all!</div>
-                <div className="text-sm opacity-90">You've mastered the corporate game of hearts</div>
+                <div className="text-sm opacity-90">You&apos;ve mastered the corporate game of hearts</div>
               </div>
             </div>
           )}
