@@ -692,7 +692,7 @@ export default function DodgeCam() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-bold text-gray-800 flex items-center gap-1 tracking-wide">
-                ❤️ You & HR (avoid the spotlight)
+                ❤️ You & HR (avoid the spotlight!)
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-3">
@@ -724,7 +724,6 @@ export default function DodgeCam() {
                     : '0 8px 20px rgba(0,0,0,0.15), 0 4px 6px rgba(0,0,0,0.1)'
                 }}
               >
-                <span className="text-lg">{isHugging ? '🚨' : '👀'}</span>
                 <span>Hold to Touch Base</span>
               </button>
               
