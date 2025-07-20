@@ -668,7 +668,7 @@ export default function DodgeCam() {
             <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-20">
               <div className="bg-white text-gray-900 px-8 py-6 rounded-2xl text-center shadow-2xl animate-bounce">
                 <div className="text-2xl font-bold mb-2">PROMOTED! 🎉</div>
-                <div className="text-lg text-gray-700">{getCurrentTitle()}</div>
+                <div className="text-lg text-gray-700">{CAREER_LEVELS[careerLevel + 1] || "CEO"}</div>
                 <div className="text-xs text-gray-500 mt-1">Spotlight getting faster...</div>
               </div>
             </div>
@@ -691,8 +691,8 @@ export default function DodgeCam() {
           {/* Romance Progress */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-700 flex items-center gap-1">
-                You & HR ❤️
+              <span className="text-sm font-bold text-gray-800 flex items-center gap-1 tracking-wide">
+                ❤️ You & HR (avoid the spotlight)
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-3">
@@ -725,7 +725,7 @@ export default function DodgeCam() {
                 }}
               >
                 <span className="text-lg">{isHugging ? '🚨' : '👀'}</span>
-                <span>TOUCH BASE</span>
+                <span>Hold to Touch Base</span>
               </button>
               
               {/* Career Progress */}
