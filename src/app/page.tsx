@@ -483,9 +483,9 @@ export default function DodgeCam() {
   
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-xl max-w-lg w-full h-[800px] flex flex-col overflow-hidden border border-gray-200">
+      <div className="bg-white rounded-3xl shadow-xl max-w-lg w-full h-[670px] flex flex-col overflow-hidden border border-gray-200 relative">
         {/* Header */}
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 border-b border-gray-200">
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 border-b border-gray-200">
           <div className="relative">
             {/* Debug Toggle Button - Hidden */}
             {false && (
@@ -515,7 +515,7 @@ export default function DodgeCam() {
         {/* Game Area */}
         <div 
           ref={gameAreaRef}
-          className="relative h-80 bg-cover bg-center bg-no-repeat overflow-hidden bg-gray-800 flex-shrink-0"
+          className="relative h-64 bg-cover bg-center bg-no-repeat overflow-hidden bg-gray-800 flex-shrink-0"
           style={{ backgroundImage: 'url(/crowd_v2.png)' }}
         >
           {/* Spotlight - Perfect circle */}
@@ -687,7 +687,7 @@ export default function DodgeCam() {
         </div>
         
         {/* Side Panel */}
-        <div className="bg-white p-6 space-y-4 flex-1 flex flex-col min-h-0 relative">
+        <div className="bg-white p-4 space-y-3 flex-1 flex flex-col min-h-0 relative">
           {/* Romance Progress */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -728,10 +728,12 @@ export default function DodgeCam() {
               </button>
               
               {/* Career Progress */}
-              <div className="text-center bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl p-4 border border-gray-200">
-                <div className="text-sm font-semibold text-gray-700">{getCurrentTitle()}</div>
-                <div className="text-xs text-gray-500 mt-1">
-                  Level {careerLevel + 1} of {CAREER_LEVELS.length}
+              <div className="text-center bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl p-3 border border-gray-200">
+                <div className="flex items-center justify-center gap-2">
+                  <div className="text-sm font-semibold text-gray-700">{getCurrentTitle()}</div>
+                  <div className="text-xs text-gray-500">
+                    ({careerLevel + 1}/{CAREER_LEVELS.length})
+                  </div>
                 </div>
                 <div className="flex items-center justify-center mt-2 space-x-1">
                   {Array.from({ length: CAREER_LEVELS.length }).map((_, i) => (
@@ -745,6 +747,38 @@ export default function DodgeCam() {
                 </div>
               </div>
               
+              {/* Compliance Notifications */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg shadow-lg p-3">
+                {showCurrent ? (
+                  <div className="flex items-start space-x-2">
+                    <div className="text-blue-500 text-sm">💬</div>
+                    <div className="flex-1">
+                      <div className="text-xs font-semibold text-blue-600">#compliance</div>
+                      <div className="text-xs text-gray-700 mt-1">{currentTooltip}</div>
+                    </div>
+                    <button 
+                      onClick={() => setShowCurrent(false)}
+                      className="text-gray-400 hover:text-gray-600 text-xs ml-2"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-start space-x-2">
+                    <div className="text-blue-500 text-sm">💬</div>
+                    <div className="flex-1">
+                      <div className="text-xs font-semibold text-blue-600">#compliance</div>
+                      <div className="text-xs text-gray-700 mt-1">{nextTooltip}</div>
+                    </div>
+                    <button 
+                      onClick={() => setShowCurrent(true)}
+                      className="text-gray-400 hover:text-gray-600 text-xs ml-2"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+              </div>
               
               {/* Debug Info */}
               {debugMode && (
@@ -808,50 +842,6 @@ export default function DodgeCam() {
             )}
           </div>
           
-          {/* Floating Slack-style notification */}
-          <div className="absolute bottom-4 left-4 right-4 bg-blue-50 border border-blue-200 rounded-lg shadow-lg p-3 z-10">
-            {/* Current message */}
-            <div 
-              className={`transition-opacity duration-200 ${
-                showCurrent ? 'opacity-100' : 'opacity-0'
-              }`}
-            >
-              <div className="flex items-start space-x-2">
-                <div className="text-blue-500 text-sm">💬</div>
-                <div className="flex-1">
-                  <div className="text-xs font-semibold text-blue-600">#compliance</div>
-                  <div className="text-xs text-gray-700 mt-1">{currentTooltip}</div>
-                </div>
-                <button 
-                  onClick={() => setShowCurrent(false)}
-                  className="text-gray-400 hover:text-gray-600 text-xs ml-2"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-            
-            {/* Next message - overlaid */}
-            <div 
-              className={`absolute inset-0 p-3 transition-opacity duration-200 ${
-                !showCurrent ? 'opacity-100' : 'opacity-0'
-              }`}
-            >
-              <div className="flex items-start space-x-2">
-                <div className="text-blue-500 text-sm">💬</div>
-                <div className="flex-1">
-                  <div className="text-xs font-semibold text-blue-600">#compliance</div>
-                  <div className="text-xs text-gray-700 mt-1">{nextTooltip}</div>
-                </div>
-                <button 
-                  onClick={() => setShowCurrent(true)}
-                  className="text-gray-400 hover:text-gray-600 text-xs ml-2"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
